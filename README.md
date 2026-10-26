@@ -2,7 +2,7 @@
 
 A file tree that grows like a real tree. Open folders to reveal new branches, pixel-art bark, moss, and cherry blossoms.
 
-Built with JavaScript, HTML, SVG, and Canvas. Vite serves the app locally and bundles its Lucide icons for production; there is no frontend framework.
+Built with JavaScript, HTML, SVG, and Canvas. Vite serves the app locally and bundles its Lucide icons for production. Three.js loads on demand for the 3D view; there is no frontend framework.
 
 https://github.com/user-attachments/assets/16a90849-e181-4e9f-9251-e8c014dad124
 
@@ -36,12 +36,17 @@ Open the local URL printed by Vite. It starts at `http://localhost:3000` and aut
 - **Zoom:** pinch on a trackpad or touchscreen, or press Ctrl/Cmd + `+` / `−`. Ctrl/Cmd + `0` resets the view.
 - **Zoom with a mouse on macOS:** hold Cmd and drag up or down.
 - **Fit the tree:** enable **Auto zoom to fit tree**, or press `A`. It zooms in or out as needed; turning it off keeps the current camera position.
+- **Explore in 3D:** enable **3D view**, then hold Alt/Option and drag to orbit. Alt/Option + arrow keys also rotate the view; Ctrl/Cmd + `0` smoothly returns to the front. Ordinary dragging still pans. The branches retain their planar layout when viewed from the front, with organic depth revealed as you orbit.
+- **Align the 3D view:** drag the axis helper at the bottom left or click an axis to snap to its view. The keycap guide sits to its right. When the helper has keyboard focus, arrow keys rotate and `X`, `Y`, `Z`, or Home select axis views. Labels and icons sit at their tree depth, so nearer branches, moss, and flowers can cover them.
 - **Go up one folder:** press Escape.
+- **Light or dark:** use the sun/moon switch at the top right. Your choice is saved for your next visit; the initial theme follows your system preference.
 - **Hide the controls:** use the eye button beside **Open folder…**.
 
 The controls panel includes sliders for pixel size, growth pace, blossom size, branch thickness, and moss coverage. Reset an adjusted slider on its own, or use the header reset button to restore all sliders.
 
-On touchscreens, drag with one finger to pan and pinch with two fingers to zoom. The app respects reduced-motion preferences.
+Mode changes animate smoothly, with the 3D camera returning to the front before the view blends back into 2D. The axis helper retracts into its origin before disappearing and unfolds when entering 3D. Both views keep the gentle idle moss breathing and bark shimmer.
+
+On touchscreens, drag with one finger to pan and pinch with two fingers to zoom. In 3D mode, dragging two fingers orbits the tree. The app respects reduced-motion preferences. 3D requires WebGL 2; the 2D view remains available when it is unsupported.
 
 ## Use your own tree
 
@@ -100,18 +105,27 @@ Publish the generated `dist/` directory to any static host, including [GitHub Pa
 ```sh
 node parse.test.mjs
 node layout.test.mjs
+node tree-space.test.mjs
+node theme.test.mjs
 ```
 
 The checks cover path parsing, icons, branch and text clearance, nested routes, collapse/reopen behavior, zoom limits, pixel alignment, and animation geometry. They do not replace browser compatibility testing.
+
+Known failure: `layout.test.mjs` currently reports that some folder outlets do not start upward. Its routing assertions remain in place.
 
 | File | Purpose |
 | --- | --- |
 | `index.html` | Interface, drawing, layout, camera, and interactions |
 | `parse.js` | Converts path lists into a tree |
+| `tree-space.js` | Seeded spatial depth and camera projection |
+| `tree3d.js` | Pixelated 3D scene, label depth, and rotation gizmo |
+| `label-depth.js` | Per-pixel label occlusion from rendered scene depth |
 | `tree.txt` | Main woodland demo, including file-type examples |
 | `video-tree.txt` | Smaller reference tree |
 | `parse.test.mjs` | Parser regression checks |
 | `layout.test.mjs` | Layout, rendering, and interaction regression checks |
+| `tree-space.test.mjs` | Depth continuity, projection, and 3D gesture checks |
+| `theme.test.mjs` | Theme defaults, saved preferences, and 2D/3D switching checks |
 
 Large or deeply nested trees can take longer to lay out. The demo has been checked in Chromium; Firefox, Safari, and physical touch devices have not been verified.
 

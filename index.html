@@ -17,30 +17,62 @@
 <meta name="twitter:title" content="Literal File Tree">
 <meta name="twitter:description" content="Explore a file tree that grows like a pixel-art tree, with branching folders, moss, and cherry blossoms.">
 <meta name="twitter:image" content="https://realfiletree.srujanponnapalli.com/social-preview.jpg">
+<script>
+  {
+    let savedTheme;
+    try { savedTheme = localStorage.getItem('theme'); } catch {}
+    document.documentElement.dataset.theme = savedTheme === 'light' || savedTheme === 'dark' ? savedTheme :
+      matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+</script>
 <style>
-  :root { --ui-ink: #353a32; --ui-muted: #60665d; --ui-border: rgb(69 89 56 / 18%); --ui-surface: rgb(248 250 245 / 62%);
+  :root { color-scheme: light; --canvas-bg: #fff; --tree-text: #555; --tree-folder: #8f8f8f; --tree-icon: #a3a3a3;
+    --folder-icon: #b5b5b5; --folder-active: #111; --ui-button: #f5f6f3; --ui-button-glass: rgb(255 255 255 / 48%);
+    --ui-action: #345524; --ui-action-bg: rgb(237 244 231 / 78%); --ui-track: #dfe3db; --ui-solid: #f8faf5;
+    --key-top: #fff; --key-bottom: #f3f5f0; --key-ink: #50574c; --ui-ink: #353a32; --ui-muted: #60665d; --ui-border: rgb(69 89 56 / 18%); --ui-surface: rgb(248 250 245 / 62%);
     --ui-hover: #edf4e7; --ui-accent: #557f35; --ui-focus: #88ad67;
     --ui-shadow: 0 14px 32px rgb(37 47 31 / 16%), 0 2px 8px rgb(37 47 31 / 8%), inset 0 0 0 1px rgb(255 255 255 / 82%); }
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #fff; touch-action: none; cursor: grab;
+  :root[data-theme="dark"] { color-scheme: dark; --canvas-bg: #171b19; --tree-text: #d4dcd5; --tree-folder: #a4b1a7;
+    --tree-icon: #a6b4aa; --folder-icon: #8c9c91; --folder-active: #f0f5ef;
+    --ui-ink: #e0e8de; --ui-muted: #b0bcae; --ui-border: rgb(180 205 170 / 20%); --ui-surface: rgb(31 39 34 / 76%);
+    --ui-hover: #354831; --ui-accent: #8eb96b; --ui-focus: #b3d692; --ui-button: #2d372f;
+    --ui-button-glass: rgb(59 72 62 / 65%); --ui-action: #c0dca9; --ui-action-bg: rgb(65 89 49 / 65%);
+    --ui-track: #465146; --ui-solid: #232c25; --key-top: #39443b; --key-bottom: #29342d; --key-ink: #d6e1d1;
+    --ui-shadow: 0 14px 32px rgb(0 0 0 / 26%), 0 2px 8px rgb(0 0 0 / 18%), inset 0 0 0 1px rgb(201 225 190 / 12%); }
+  #theme-toggle { z-index: 4; position: fixed; top: 16px; right: 16px; display: flex; align-items: center; gap: 10px;
+    min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; color: var(--ui-muted);
+    background: var(--ui-surface); box-shadow: var(--ui-shadow); backdrop-filter: blur(22px) saturate(1.55);
+    -webkit-backdrop-filter: blur(22px) saturate(1.55); cursor: pointer; touch-action: manipulation; }
+  #theme-toggle .lucide { width: 18px; height: 18px; stroke-width: 1.8; }
+  #theme-toggle input { appearance: none; width: 38px; height: 22px; margin: 0; border: 1px solid var(--ui-border);
+    border-radius: 99px; background: var(--ui-track); cursor: pointer; }
+  #theme-toggle input::before { content: ""; display: block; width: 16px; height: 16px; margin: 2px;
+    border-radius: 50%; background: var(--ui-ink); transition: transform .2s ease-out; }
+  #theme-toggle input:checked::before { transform: translateX(16px); }
+  #theme-toggle input:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 3px; }
+  #theme-toggle:has(input:not(:checked)) .lucide-sun, #theme-toggle:has(input:checked) .lucide-moon { color: var(--ui-action); }
+  body.ui-hidden #theme-toggle { display: none; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--canvas-bg); touch-action: none; cursor: grab;
                font: 13px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
   body.dragging { cursor: grabbing; }
   canvas { z-index: 1; position: fixed; left: 0; top: 0; image-rendering: pixelated; }
-  .item { z-index: 2; position: fixed; left: 0; top: 0; display: flex; align-items: center; gap: 5px; color: #555; transform-origin: 0 0;
+  #c3d { z-index: 0; pointer-events: none; }
+  .view-3d .item:focus-visible { mask-image: none !important; -webkit-mask-image: none !important; }
+  .item { z-index: 2; position: fixed; left: 0; top: 0; display: flex; align-items: center; gap: 5px; color: var(--tree-text); transform-origin: 0 0;
           white-space: nowrap; user-select: none; opacity: 0; pointer-events: none; transition: opacity .3s; }
   .item.on { opacity: 1; pointer-events: auto; }
-  .item svg { display: block; color: #a3a3a3; transition: transform .12s; }
-  button.item { font: inherit; color: #8f8f8f; background: none; border: 0; padding: 0; border-radius: 4px; cursor: pointer; }
-  button.item.file { color: #555; }
+  .item svg { display: block; color: var(--tree-icon); transition: transform .12s; }
+  button.item { font: inherit; color: var(--tree-folder); background: none; border: 0; padding: 0; border-radius: 4px; cursor: pointer; }
+  button.item.file { color: var(--tree-text); }
   button.item:focus-visible { outline: 1px solid var(--ui-accent); border-radius: 2px; }
-  /* Animate a single opaque, stepped flap instead of blending two outlines. */
   .folder-icon { position: relative; display: block; flex: none; width: 18px; height: 14px;
     transform-origin: center; transition: transform .16s ease-out; }
-  button.item.dir svg { color: #b5b5b5; transition: color .18s; }
+  button.item.dir svg { color: var(--folder-icon); transition: color .18s; }
   button.item.dir:hover .folder-icon { transform: scale(1.06); }
-  button.item.dir:hover svg, button.item.dir.open svg { color: #111; }
-  button.item.dir.open { color: #555; }
-  .folder-back { position: fixed; left: 0; top: 0; transform-origin: 0 0; pointer-events: none; color: #b5b5b5; transition: color .18s; }
-  .folder-back.open, .folder-back:has(+ button.item.dir:hover) { color: #111; }
+  button.item.dir:hover svg, button.item.dir.open svg { color: var(--folder-active); }
+  button.item.dir.open { color: var(--tree-text); }
+  .folder-back { position: fixed; left: 0; top: 0; transform-origin: 0 0; pointer-events: none; color: var(--folder-icon); transition: color .18s; }
+  .folder-back.open, .folder-back:has(+ button.item.dir:hover) { color: var(--folder-active); }
   .folder-back svg { display: block; transform-origin: center; transition: transform .16s ease-out; }
   .folder-back:has(+ button.item.dir:hover) svg { transform: scale(1.06); }
   @media (prefers-reduced-motion: reduce) { button.item.dir svg, .folder-icon, .folder-back, .folder-back svg { transition: none; } }
@@ -51,19 +83,28 @@
   #playground header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 8px; padding: 0 0 8px;
     border-bottom: 1px solid rgb(83 108 63 / 12%); font-size: 13px; font-weight: 550; }
   #playground .heading, #playground .header-actions { display: flex; align-items: center; }
+  #view-tools { z-index: 4; position: fixed; left: 16px; bottom: 16px; display: flex; align-items: center; gap: 12px;
+    width: min(448px, calc(100vw - 32px)); box-sizing: border-box; cursor: default; opacity: var(--gizmo-origin, 1); }
+  #view-tools[hidden], body.ui-hidden #view-tools { display: none; }
+  #view-tools.error { opacity: 1; }
+  #rotation-gizmo { width: 128px; height: 128px; flex: none; overflow: hidden; cursor: grab; touch-action: none; border-radius: 12px; }
+  #rotation-gizmo[hidden] { display: none; }
+  #rotation-gizmo:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+  #rotation-gizmo canvas { position: static; display: block; width: 128px; height: 128px; image-rendering: auto; }
+  .view-changing #rotation-gizmo { pointer-events: none; }
   #playground .heading { gap: 9px; min-width: 0; }
   #playground .header-actions { gap: 4px; }
   #count { max-width: 124px; overflow: hidden; color: var(--ui-muted); font-size: 12px; font-weight: 500;
     font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
   #playground button { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 10px;
-    color: var(--ui-ink); background: #f5f6f3; border: 1px solid var(--ui-border); border-radius: 7px;
+    color: var(--ui-ink); background: var(--ui-button); border: 1px solid var(--ui-border); border-radius: 7px;
     font: inherit; font-weight: 550; cursor: pointer; transition: background-color .14s, border-color .14s, color .14s, transform .14s; }
-  #playground button:hover { color: #345524; background: var(--ui-hover); border-color: rgb(85 127 53 / 24%); }
+  #playground button:hover { color: var(--ui-action); background: var(--ui-hover); border-color: rgb(85 127 53 / 24%); }
   #playground button:active { transform: translateY(1px); }
   #playground button:focus-visible, #playground input:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
   #playground #reset-controls { width: 32px; height: 32px; min-height: 32px; padding: 0; color: var(--ui-muted); background: transparent; border-color: transparent; }
-  #playground #toggle-ui { width: 38px; height: 34px; min-height: 34px; padding: 4px; color: var(--ui-muted); background: rgb(255 255 255 / 48%); }
-  #playground #choose-folder { color: #345524; background: rgb(237 244 231 / 78%); border-color: rgb(85 127 53 / 18%); }
+  #playground #toggle-ui { width: 38px; height: 34px; min-height: 34px; padding: 4px; color: var(--ui-muted); background: var(--ui-button-glass); }
+  #playground #choose-folder { color: var(--ui-action); background: var(--ui-action-bg); border-color: rgb(85 127 53 / 18%); }
   #panel-content { position: relative; z-index: 1; }
   body.ui-hidden #panel-content { display: none; }
   body.ui-hidden #playground { width: 40px; max-height: none; padding: 0; overflow: visible; background: transparent; border: 0;
@@ -75,13 +116,20 @@
   body.ui-hidden #toggle-ui:hover { background: transparent; border-color: transparent; }
   #playground .control { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; align-items: center; margin-top: 9px;
     color: var(--ui-muted); font-size: 13px; font-weight: 500; }
-  #playground .control.toggle { grid-template-columns: 1fr auto; }
-  #playground .control.toggle kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px;
+  #view-hint { display: grid; flex: 1; min-width: 0; gap: 5px; margin: 0; color: var(--ui-muted); font-size: 14px; line-height: 1.5;
+    opacity: var(--gizmo-axes, 1); transform: translateX(calc(8px * (1 - var(--gizmo-axes, 1)))); }
+  #view-hint[hidden] { display: none; }
+  #view-tools.error #view-hint { opacity: 1; transform: none; }
+  #view-hint .shortcut { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  #view-hint .key-pair { display: inline-flex; align-items: center; gap: 3px; flex: none; }
+  #playground .control.toggle kbd, #view-hint kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px;
     box-sizing: border-box; margin-left: 7px; padding: 0 5px; border: 1px solid rgb(69 89 56 / 20%); border-bottom: 2px solid rgb(69 89 56 / 30%);
-    border-radius: 5px; color: #50574c; background: linear-gradient(#fff, #f3f5f0); box-shadow: 0 1px 2px rgb(37 47 31 / 10%);
+    border-radius: 5px; color: var(--key-ink); background: linear-gradient(var(--key-top), var(--key-bottom)); box-shadow: 0 1px 2px rgb(37 47 31 / 10%);
     font: inherit; font-size: 11px; font-weight: 600; line-height: 1; vertical-align: 1px; }
+  #view-hint kbd { flex: none; min-width: 24px; height: 24px; margin: 0; padding: 0 4px; font-size: 13px; }
+  #view-hint kbd .lucide { width: 16px; height: 16px; stroke-width: 1.8; }
   #playground .control.toggle input { appearance: none; grid-column: auto; width: 36px; height: 21px; margin: 0; padding: 0;
-    border: 1px solid rgb(69 89 56 / 18%); border-radius: 99px; background: #dfe3db; cursor: pointer;
+    border: 1px solid rgb(69 89 56 / 18%); border-radius: 99px; background: var(--ui-track); cursor: pointer;
     transition: background-color .16s, border-color .16s; }
   #playground .control.toggle input::before { content: ""; display: block; width: 15px; height: 15px; margin: 2px;
     border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgb(37 47 31 / 22%); transition: transform .16s; }
@@ -102,13 +150,13 @@
   #playground .value-char > span { grid-area: 1 / 1; }
   #playground input:not([type="checkbox"]) { grid-column: 1 / -1; appearance: none; width: 100%; height: 20px; margin: 0; padding: 0;
     background: transparent; cursor: pointer; touch-action: pan-x; }
-  #playground input::-webkit-slider-runnable-track { height: 5px; background: #dfe3db; border-radius: 99px; }
-  #playground input::-moz-range-track { height: 5px; background: #dfe3db; border-radius: 99px; }
+  #playground input::-webkit-slider-runnable-track { height: 5px; background: var(--ui-track); border-radius: 99px; }
+  #playground input::-moz-range-track { height: 5px; background: var(--ui-track); border-radius: 99px; }
   #playground input::-webkit-slider-thumb { appearance: none; width: 17px; height: 17px; margin-top: -6px; border: 2px solid #fff;
     border-radius: 50%; background: var(--ui-accent); box-shadow: 0 0 0 1px var(--ui-accent); }
   #playground input::-moz-range-thumb { width: 14px; height: 14px; border: 2px solid #fff; border-radius: 50%;
     background: var(--ui-accent); box-shadow: 0 0 0 1px var(--ui-accent); }
-  #playground input:hover::-webkit-slider-thumb, #playground input:hover::-moz-range-thumb { background: #456d2b; }
+  #playground input:hover::-webkit-slider-thumb, #playground input:hover::-moz-range-thumb { background: var(--ui-action); }
   #panel-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 12px; padding-top: 12px;
     border-top: 1px solid rgb(83 108 63 / 12%); }
   #panel-footer .footer-actions { display: flex; align-items: center; gap: 8px; }
@@ -122,25 +170,39 @@
   #folder-menu[hidden] { display: none; }
   #folder-menu button { display: flex; align-items: center; width: 100%; min-height: 32px; padding: 0 9px; color: var(--ui-ink);
     background: transparent; border: 0; border-radius: 7px; font: inherit; text-align: left; cursor: pointer; }
-  #folder-menu button:hover, #folder-menu button:focus-visible { color: #345524; background: var(--ui-hover); outline: 0; }
+  #folder-menu button:hover, #folder-menu button:focus-visible { color: var(--ui-action); background: var(--ui-hover); outline: 0; }
   #folder-menu button:focus-visible { box-shadow: inset 0 0 0 2px var(--ui-focus); }
-  @media (prefers-reduced-motion: reduce) { #folder-menu, #folder-menu button { transition: none; } }
-  @media (prefers-reduced-transparency: reduce) { #folder-menu { background: rgb(248 250 245 / 96%); backdrop-filter: none; -webkit-backdrop-filter: none; } }
+  @media (prefers-reduced-transparency: reduce) { #playground, #folder-menu, #theme-toggle { background: var(--ui-solid); backdrop-filter: none; -webkit-backdrop-filter: none; } }
   @media (prefers-reduced-motion: reduce) {
-    #playground button, #playground input[type="checkbox"], #playground input[type="checkbox"]::before, #playground .reset-one { transition: none; }
+    #playground button, #playground input[type="checkbox"], #playground input[type="checkbox"]::before, #playground .reset-one, #theme-toggle input::before { transition: none; }
   }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    #playground { background: rgb(248 250 245 / 96%); }
+    #playground, #folder-menu, #theme-toggle { background: var(--ui-solid); }
+  }
+  @media (max-width: 760px) {
+    #view-tools { left: 8px; bottom: 8px; width: min(448px, calc(100vw - 16px)); }
+    body.view-3d:not(.ui-hidden) #playground { bottom: calc(16px + 160px * var(--gizmo-origin, 1));
+      max-height: calc(100dvh - 32px - 160px * var(--gizmo-origin, 1)); }
   }
   @media (max-width: 520px) {
+    #theme-toggle { top: 8px; right: 8px; }
     #playground { right: 8px; bottom: 8px; width: min(304px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); }
+    body.view-3d:not(.ui-hidden) #playground { bottom: calc(8px + 160px * var(--gizmo-origin, 1));
+      max-height: calc(100dvh - 16px - 160px * var(--gizmo-origin, 1)); }
   }
 </style>
 </head>
 <body>
+<label id="theme-toggle" title="Switch between light and dark mode">
+  <i data-lucide="sun" aria-hidden="true"></i>
+  <input id="dark-mode" type="checkbox" role="switch" aria-label="Dark mode">
+  <i data-lucide="moon" aria-hidden="true"></i>
+</label>
+<canvas id="c3d" hidden aria-hidden="true"></canvas>
 <canvas id="c"></canvas>
 <aside id="playground" aria-label="Tree appearance controls">
-  <header><span class="heading"><span id="count" aria-live="polite"></span></span><span class="header-actions">
+  <header><span class="heading"><span id="count" aria-live="polite"></span></span>
+    <span class="header-actions">
     <button id="reset-controls" type="button" aria-label="Reset tree controls" title="Reset controls" disabled>
     <i class="ui-icon" data-lucide="rotate-ccw" aria-hidden="true"></i>
     </button>
@@ -153,33 +215,39 @@
   <div class="control"><label for="branch-control">Branch thickness</label><span class="value-actions"><output id="branch-value">1.0×</output><button class="reset-one" type="button" data-reset="branch-control" aria-label="Reset branch thickness" title="Reset branch thickness" disabled><i class="ui-icon" data-lucide="rotate-ccw" aria-hidden="true"></i></button></span><input id="branch-control" type="range" min="0.5" max="2" step="0.1" value="1"></div>
   <div class="control"><label for="moss-control">Moss coverage</label><span class="value-actions"><output id="moss-value">1.0×</output><button class="reset-one" type="button" data-reset="moss-control" aria-label="Reset moss coverage" title="Reset moss coverage" disabled><i class="ui-icon" data-lucide="rotate-ccw" aria-hidden="true"></i></button></span><input id="moss-control" type="range" min="0" max="2" step="0.1" value="1"></div>
   <div class="control toggle"><label for="auto-zoom">Auto zoom to fit tree <kbd>A</kbd></label><input id="auto-zoom" type="checkbox" aria-keyshortcuts="A"></div>
+  <div class="control toggle"><label for="view-3d">3D view</label><input id="view-3d" type="checkbox" aria-describedby="view-hint"></div>
   </div>
   <div id="panel-footer"><span class="footer-actions">
     <button id="choose-folder" type="button">Open folder…</button><button id="toggle-ui" type="button" aria-label="Hide controls" title="Hide controls" aria-controls="panel-content" aria-expanded="true"><span id="toggle-icon"><i class="ui-icon" data-lucide="eye-off" aria-hidden="true"></i></span></button>
   </span></div>
 </aside>
+<div id="view-tools" hidden>
+  <div id="rotation-gizmo" hidden tabindex="0" role="group" aria-label="3D rotation. Drag to orbit, click an axis to align. Arrow keys rotate; X, Y, Z and Home select axis views." title="Drag to rotate · click an axis to align · X / Y / Z / Home"></div>
+  <p id="view-hint" role="status" hidden></p>
+</div>
 <div id="folder-menu" role="menu" aria-label="Folder actions" hidden>
   <button id="folder-menu-toggle" type="button" role="menuitem" tabindex="-1">Expand folder</button>
   <button id="folder-menu-copy" type="button" role="menuitem" tabindex="-1">Copy path</button>
 </div>
 <script type="module">
 import { parse } from './parse.js';
-import { createIcons, Eye, EyeOff, RotateCcw } from 'lucide';
-const lucideIcons = { Eye, EyeOff, RotateCcw };
+import { viewProgress, gizmoProgress } from './tree-space.js';
+import { createIcons, Eye, EyeOff, RotateCcw, Option, Command, Sun, Moon } from 'lucide';
+const lucideIcons = { Eye, EyeOff, RotateCcw, Option, Command, Sun, Moon };
 
 let PX = 3;          // screen pixels per canvas pixel
 let growthPace = 1, blossomScale = 1, branchScale = 1, mossCoverage = 1;
 const STEP = 4;      // world units between branch points
-const SKETCH = .12;  // seconds before a point starts thickening
-const THICKEN = 1.8; // seconds for a point to reach full branch thickness
+const SKETCH = .12;
+const THICKEN = 1.8;
 const TWIG_SPEED = 220;
 const C = { core: '#8d8a82', core2: '#a9a69d', edge: '#1e1c1a', edge2: '#5a4c40', tip: '#c2aba0', bud: '#b4232c',
             moss: ['#9fe01b', '#cdf23f'], mossDark: '#3e8f17', mossLight: '#eef77a' };
 const PETALS = ['#ffc0d3', '#ffb3c9', '#ffd6e2', '#f7a1bd'], CORES = ['#e0567f', '#f5d76e'];
 const pixels = (cls, rows, fill = '') => `<svg class="${cls}" viewBox="0 0 ${rows[0].length} ${rows.length}" width="${rows[0].length}" ` +
-  `height="${rows.length}" shape-rendering="crispEdges">${fill ? `<path fill="#fff" d="${fill}"/>` : ''}<path fill="currentColor" d="${
+  `height="${rows.length}" shape-rendering="crispEdges">${fill ? `<path fill="var(--canvas-bg)" d="${fill}"/>` : ''}<path fill="currentColor" d="${
   rows.flatMap((row, y) => [...row].map((c, x) => c === '#' ? `M${x} ${y}h1v1h-1z` : '')).join('')}"/></svg>`;
-const FOLDER_BACK = `<svg viewBox="0 0 18 14" width="18" height="14" shape-rendering="crispEdges"><path fill="#fff" stroke="currentColor" stroke-width="1" d="M.5 13.5V2.5H1.5V1.5H2.5V.5H8.5V1.5H9.5V2.5H15.5V13.5Z"/></svg>`;
+const FOLDER_BACK = `<svg viewBox="0 0 18 14" width="18" height="14" shape-rendering="crispEdges"><path fill="var(--canvas-bg)" stroke="currentColor" stroke-width="1" d="M.5 13.5V2.5H1.5V1.5H2.5V.5H8.5V1.5H9.5V2.5H15.5V13.5Z"/></svg>`;
 const FOLDER_FRAMES = Array.from({ length: 5 }, (_, frame) => {
   const amount = frame / 4, top = 4 + Math.round(amount), rows = Array(14).fill('..................');
   let fill = '';
@@ -609,7 +677,7 @@ function discard(node) {
   delete node.branch;
 }
 
-let labels = [], placedLabels = [], branches = []; // Layout checks share placed label boxes across branches.
+let labels = [], placedLabels = [], branches = [];
 function bounce(k) {
   if (reduceMotion.matches) return;
   for (const el of [k.el, k.back].filter(Boolean)) {
@@ -647,10 +715,12 @@ function label(k) {
   }
   el.addEventListener('contextmenu', event => {
     if (!k.children) return;
+    if (view3d && !view3d.labelPointVisible(k, event.clientX, event.clientY)) return;
     event.preventDefault(); showFolderMenu(k, el, event);
   });
-  el.onclick = () => {
+  el.onclick = event => {
     if (dragged) return;
+    if (event?.detail && view3d && !view3d.labelPointVisible(k, event.clientX, event.clientY)) return;
     if (k.children) toggle(k);
     else {
       bounce(k);
@@ -671,6 +741,8 @@ function label(k) {
 const cv = document.getElementById('c'), ctx = cv.getContext('2d'), countEl = document.getElementById('count');
 let root, focus, open, cam, manual = false, userZoom = 1, zoomTarget = null, W, H, running = false, last = 0, timer = null;
 const autoZoomControl = document.getElementById('auto-zoom');
+const threeControl = document.getElementById('view-3d'), cv3d = document.getElementById('c3d'), viewHint = document.getElementById('view-hint'), viewTools = document.getElementById('view-tools');
+let view3d = null, viewRequest = 0, orbitDragging = false, saved2d = null, viewBlend = 0, viewGizmo = 0, viewTransition = null;
 const folderMenu = document.getElementById('folder-menu'), folderMenuToggle = document.getElementById('folder-menu-toggle');
 let contextFolder = null;
 const closeFolderMenu = restoreFocus => {
@@ -716,7 +788,9 @@ function load(text, files = null) {
   root.start = { x: 0, y: 0, a: -.08, depth: 0, path: '', len: Math.max(950, 70 * root.children.length + 300) };
   grow(root);
   focus = root; open = new Set([root]); cam = null; manual = false;
+  saved2d = null; view3d?.reset();
   wake();
+  if (threeControl.checked && !view3d) threeControl.dispatchEvent(new Event('change'));
 }
 
 function toggle(f) {
@@ -733,11 +807,15 @@ function toggle(f) {
 }
 
 let framed = { node: null };
-function target() {
-  if (framed.node === focus) return framed;
+function target(flat = false) {
+  const spatial = view3d && !flat;
+  if (!spatial && framed.node === focus) return framed;
   const ps = focus.branch.pts.filter(p => p.t >= (focus.parent ? 0 : .15)).concat(focus.children);
-  const xs = ps.map(p => p.x), ys = ps.map(p => p.y);
-  return framed = { node: focus, x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
+  const projected = spatial ? ps.map(p => view3d.project(p)) : ps;
+  const xs = projected.map(p => p.x), ys = projected.map(p => p.y);
+  const result = { node: focus, x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
+  if (!spatial) framed = result;
+  return result;
 }
 
 function autoTarget(zoomLimit = userZoom) {
@@ -745,17 +823,24 @@ function autoTarget(zoomLimit = userZoom) {
   const add = (x, y) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); };
   (function visit(node) {
     const b = node.branch, expanded = open.has(node);
-    if (b && (expanded || b.age > 0)) for (const p of b.pts)
-      if (expanded || p.tr * b.dur < b.age) add(p.x, p.y);
+    if (b && (expanded || b.age > 0)) for (const p of view3d ? view3d.bounds(b) : b.pts)
+      if (view3d || expanded || p.tr * b.dur < b.age) { const q = view3d ? view3d.project(p) : p; add(q.x, q.y); }
     for (const kid of node.children) {
-      if (kid.vis || expanded) { add(kid.rect.x0, kid.rect.y0); add(kid.rect.x1, kid.rect.y1); }
+      if (kid.vis || expanded) {
+        const p = view3d ? view3d.project(kid) : kid;
+        add(p.x + kid.rect.x0 - kid.x, p.y + kid.rect.y0 - kid.y);
+        add(p.x + kid.rect.x1 - kid.x, p.y + kid.rect.y1 - kid.y);
+      }
       if (kid.branch) visit(kid);
     }
   })(root);
   if (!Number.isFinite(x0)) return target();
   const pad = 40, width = Math.max(1, x1 - x0 + pad * 2), height = Math.max(1, y1 - y0 + pad * 2);
-  const fitZoom = Math.max(.05, Math.min(Math.max(1, W - 80) / width, Math.max(1, H - 80) / height) / baseZoom());
-  return { x: (x0 + x1) / 2, y: (y0 + y1) / 2, zoom: Math.min(zoomLimit, fitZoom) };
+  const panel = view3d && !document.body.classList.contains('ui-hidden') ? document.getElementById('playground').getBoundingClientRect() : null;
+  const right = panel && W > 700 ? panel.width + 24 : 0, bottom = panel && W <= 700 ? panel.height + 24 : 0;
+  const fitZoom = Math.max(.05, Math.min(Math.max(120, W - 80 - right) / width, Math.max(120, H - 80 - bottom) / height) / baseZoom());
+  const fitted = Math.min(zoomLimit, fitZoom), scale = fitted * baseZoom();
+  return { x: (x0 + x1) / 2 + right / scale / 2, y: (y0 + y1) / 2 + bottom / scale / 2, zoom: fitted };
 }
 
 function panBy(dx, dy) {
@@ -780,12 +865,90 @@ function resize() {
   if (zoomTarget !== null) zoomTarget = Math.max(zoomTarget, minUserZoom());
   cv.width = Math.ceil(W / PX); cv.height = Math.ceil(H / PX);
   cv.style.width = cv.width * PX + 'px'; cv.style.height = cv.height * PX + 'px';
+  view3d?.resize(W, H, PX);
   wake();
 }
 const pixelControl = document.getElementById('pixel-control'), growthControl = document.getElementById('growth-control'), blossomControl = document.getElementById('blossom-control'),
   branchControl = document.getElementById('branch-control'), mossControl = document.getElementById('moss-control');
 document.getElementById('choose-folder').addEventListener('click', () => document.getElementById('pick').click());
 autoZoomControl.addEventListener('change', () => { zoomTarget = null; manual = !autoZoomControl.checked; wake(); });
+function restore2D() {
+  const original = saved2d?.focus === focus ? saved2d : null;
+  return { cam: original?.cam || (focus ? target(true) : cam), zoom: saved2d?.zoom ?? userZoom, manual: original?.manual ?? false };
+}
+function finish3D(restore = restore2D()) {
+  view3d?.dispose(); view3d = null; cv3d.hidden = true; orbitDragging = false; viewTransition = null; viewBlend = 0;
+  document.body.classList.remove('view-3d', 'view-changing');
+  cv.style.opacity = '1'; viewHint.hidden = true; threeControl.disabled = false;
+  viewTools.hidden = true; viewTools.classList.remove('error'); updateGizmo(0);
+  cam = restore.cam; userZoom = restore.zoom; manual = restore.manual; saved2d = null;
+  framed.node = null; wake();
+}
+function updateGizmo(value) {
+  viewGizmo = value; view3d?.setGizmoProgress(value);
+  const phase = gizmoProgress(value);
+  document.body.style.setProperty('--gizmo-origin', String(phase.origin));
+  document.body.style.setProperty('--gizmo-axes', String(phase.axes));
+}
+threeControl.addEventListener('change', async () => {
+  const request = ++viewRequest;
+  if (threeControl.checked && !root) { threeControl.checked = false; return; }
+  if (!threeControl.checked) {
+    if (!view3d || reduceMotion.matches) { finish3D(); return; }
+    const { yaw, pitch } = view3d.state;
+    viewTransition = { leaving: true, start: performance.now(), duration: 420, fromBlend: viewBlend, fromGizmo: viewGizmo,
+      fromCam: { ...cam }, fromZoom: userZoom, fromYaw: yaw, fromPitch: pitch,
+      frontYaw: yaw + Math.atan2(Math.sin(-yaw), Math.cos(-yaw)), restore: restore2D() };
+    orbitDragging = false; zoomTarget = null; threeControl.disabled = true;
+    document.body.classList.add('view-changing'); wake(); return;
+  }
+  threeControl.disabled = true; viewHint.hidden = false; viewHint.textContent = 'Preparing 3D…';
+  try {
+    const { create3DView } = await import('./tree3d.js');
+    if (request !== viewRequest || !threeControl.checked) return;
+    const fail3d = () => {
+      threeControl.checked = false; finish3D();
+      viewTools.hidden = false; viewTools.classList.add('error');
+      viewHint.hidden = false; viewHint.textContent = '3D is unavailable. The 2D view is still ready to use.';
+    };
+    view3d = create3DView(cv3d, fail3d, { gizmo: document.getElementById('rotation-gizmo'), onChange: wake,
+      onOrbitStart: beginOrbit, onOrbitEnd: () => { orbitDragging = false; wake(); } });
+    view3d.setBackground(canvasBackground);
+    saved2d = { cam: cam && { ...cam }, zoom: userZoom, manual, focus };
+    view3d.sync(branches);
+    const center = target(); view3d.setPivot({ x: center.x, y: center.y, z: focus?.z || 0 });
+    viewBlend = reduceMotion.matches ? 1 : 0;
+    viewTransition = reduceMotion.matches ? null : { leaving: false, start: performance.now(), duration: 280 };
+    updateGizmo(reduceMotion.matches ? 1 : 0); viewTools.hidden = false; viewTools.classList.remove('error');
+    cv3d.hidden = false; document.body.classList.add('view-3d');
+    document.body.classList.toggle('view-changing', !!viewTransition);
+    if (matchMedia('(pointer: coarse)').matches) viewHint.textContent = 'Two-finger drag to orbit · pinch to zoom';
+    else {
+      const orbitKey = '<span class="key-pair"><kbd>Alt</kbd><span aria-hidden="true">/</span><kbd aria-label="Option" title="Option"><i data-lucide="option" aria-hidden="true"></i></kbd></span>';
+      const resetKey = '<span class="key-pair"><kbd>Ctrl</kbd><span aria-hidden="true">/</span><kbd aria-label="Command" title="Command"><i data-lucide="command" aria-hidden="true"></i></kbd></span>';
+      viewHint.innerHTML = `<span class="shortcut">${orbitKey}<span>+ drag or arrows to orbit</span></span>` +
+        `<span class="shortcut">${resetKey}<span>+</span><kbd>0</kbd><span>front view</span></span>`;
+      createIcons({ icons: lucideIcons });
+    }
+    resize();
+  } catch (error) {
+    threeControl.checked = false; finish3D(); viewHint.hidden = false;
+    viewTools.hidden = false; viewTools.classList.add('error');
+    viewHint.textContent = '3D needs WebGL 2. The 2D view is still ready to use.';
+    console.error('Could not start the 3D view:', error);
+  } finally { if (request === viewRequest && !viewTransition?.leaving) threeControl.disabled = false; }
+});
+const themeControl = document.getElementById('dark-mode');
+let canvasBackground = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim();
+themeControl.checked = document.documentElement.dataset.theme === 'dark';
+themeControl.addEventListener('change', () => {
+  const theme = themeControl.checked ? 'dark' : 'light';
+  document.documentElement.dataset.theme = theme;
+  canvasBackground = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim();
+  view3d?.setBackground(canvasBackground);
+  try { localStorage.setItem('theme', theme); } catch {}
+  wake();
+});
 const toggleUiButton = document.getElementById('toggle-ui');
 const toggleUiIcon = document.getElementById('toggle-icon');
 const setControlsHidden = hidden => {
@@ -795,6 +958,7 @@ const setControlsHidden = hidden => {
   toggleUiButton.setAttribute('aria-label', hidden ? 'Show controls' : 'Hide controls');
   toggleUiButton.title = hidden ? 'Show controls' : 'Hide controls';
   toggleUiButton.setAttribute('aria-expanded', String(!hidden));
+  if (view3d) wake();
 };
 toggleUiButton.addEventListener('click', () => setControlsHidden(!document.body.classList.contains('ui-hidden')));
 setControlsHidden(false);
@@ -1011,14 +1175,37 @@ function frame(now) {
   const dt = Math.min(.1, (now - last) / 1000), instant = reduceMotion.matches, time = now / 1000;
   last = now;
   let busy = false, shown = 0;
+  const closing = !!viewTransition?.leaving;
+  if (view3d) {
+    view3d.sync(branches);
+    if (viewTransition) {
+      const transition = viewTransition, t = instant ? 1 : clamp((now - transition.start) / transition.duration, 0, 1);
+      const phase = viewProgress(t, closing);
+      viewBlend = closing ? transition.fromBlend * phase.blend : phase.blend;
+      updateGizmo(closing ? transition.fromGizmo * (1 - t) : t);
+      if (closing) {
+        view3d.state.yaw = transition.fromYaw + (transition.frontYaw - transition.fromYaw) * phase.front;
+        view3d.state.pitch = transition.fromPitch * (1 - phase.front);
+        cam = { x: transition.fromCam.x + (transition.restore.cam.x - transition.fromCam.x) * phase.front,
+          y: transition.fromCam.y + (transition.restore.cam.y - transition.fromCam.y) * phase.front };
+        userZoom = transition.fromZoom + (transition.restore.zoom - transition.fromZoom) * phase.front;
+      }
+      cv.style.opacity = String(1 - viewBlend);
+      if (t === 1) {
+        if (closing) finish3D(transition.restore);
+        else { viewTransition = null; document.body.classList.remove('view-changing'); }
+      } else busy = true;
+    }
+    if (view3d && !closing) busy = view3d.step(dt, instant) || busy;
+  }
   let tg;
-  if (!manual) {
+  if (!manual && !orbitDragging && !closing) {
     tg = autoZoomControl.checked ? autoTarget(6) : target();
     const k = instant || !cam ? 1 : Math.min(1, dt * 3);
     cam = cam || tg;
     cam = { x: cam.x + (tg.x - cam.x) * k, y: cam.y + (tg.y - cam.y) * k };
     if (tg.zoom !== undefined) userZoom += (tg.zoom - userZoom) * k;
-    busy = Math.abs(tg.x - cam.x) + Math.abs(tg.y - cam.y) > .3 || (tg.zoom !== undefined && Math.abs(tg.zoom - userZoom) > .001);
+    busy ||= Math.abs(tg.x - cam.x) + Math.abs(tg.y - cam.y) > .3 || (tg.zoom !== undefined && Math.abs(tg.zoom - userZoom) > .001);
   }
   if (zoomTarget !== null && (manual || tg?.zoom === undefined)) {
     userZoom += (zoomTarget - userZoom) * (instant ? 1 : Math.min(1, dt * 6));
@@ -1029,14 +1216,13 @@ function frame(now) {
   }
   const z = zoom();
   const ox = W / 2 - cam.x * z, oy = H / 2 - cam.y * z, s = Math.max(1, Math.floor(z * STEP / PX));
-  // Closing branches decay faster than they grew.
   const advance = (v, on, cap) => {
     const nv = instant ? (on ? cap : 0) : on ? Math.min(cap, v + dt * growthPace) : Math.max(0, v - dt * growthPace * (v + 1) * 2);
     if (nv !== v) busy = true;
     return nv;
   };
 
-  const drawn = [];
+  const drawn = [], visibleNodes = [];
   (function walk(node) {
     const b = node.branch;
     b.age = advance(b.age, open.has(node), b.cap);
@@ -1049,8 +1235,9 @@ function frame(now) {
         kid.el.setAttribute('aria-hidden', !vis);
         kid.el.tabIndex = vis ? 0 : -1;
       }
-      kid.el.style.transform = `translate(${kid.x * z + ox}px,${kid.y * z + oy}px) scale(${z * Q}) ${kid.place}`;
-      if (vis) shown++;
+      const projected = view3d ? view3d.project(kid) : kid;
+      kid.el.style.transform = `translate(${projected.x * z + ox}px,${projected.y * z + oy}px) scale(${z * Q}) ${kid.place}`;
+      if (vis) { shown++; visibleNodes.push(kid); }
       if (kid.children) {
         kid.back.style.transform = kid.el.style.transform;
         kid.back.hidden = !vis;
@@ -1070,7 +1257,14 @@ function frame(now) {
   })(root);
 
   ctx.clearRect(0, 0, cv.width, cv.height);
-  for (const n of drawn) render(n.branch, n.branch.age, 1, time, z, ox, oy, s);
+  if (view3d) {
+    if (viewBlend < 1) {
+      ctx.fillStyle = canvasBackground; ctx.fillRect(0, 0, cv.width, cv.height);
+      for (const n of drawn) render(n.branch, n.branch.age, 1, time, z, ox, oy, s);
+    }
+    view3d.render(cam, z, W, H, PX, branchScale, blossomScale, instant ? 0 : time);
+    view3d.occludeLabels(visibleNodes, z, Q, cam, W, H, PX);
+  } else for (const n of drawn) render(n.branch, n.branch.age, 1, time, z, ox, oy, s);
   ctx.globalAlpha = 1;
   for (const n of drawn) if (n !== root && n.branch?.age === 0 && !open.has(n)) discard(n);
 
@@ -1078,6 +1272,13 @@ function frame(now) {
   if (busy) requestAnimationFrame(frame);
   else if (instant) running = false;
   else timer = setTimeout(() => { timer = null; requestAnimationFrame(frame); }, 1000 / 12);
+}
+
+function beginOrbit() {
+  if (!view3d || !cam || orbitDragging) return;
+  const pts = focus.branch.pts, center = pts[Math.floor(pts.length / 2)];
+  const shift = view3d.setPivot(center); cam.x += shift.x; cam.y += shift.y;
+  orbitDragging = true; manual = !autoZoomControl.checked; zoomTarget = null;
 }
 
 const pointers = new Map();
@@ -1088,18 +1289,29 @@ const gesture = () => {
            d: ps.length > 1 ? Math.hypot(ps[0].x - ps[1].x, ps[0].y - ps[1].y) : 0 };
 };
 addEventListener('pointerdown', e => {
-  if (e.target.closest('#playground, #folder-menu')) return;
-  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY });
+  if (e.target.closest('#playground, #folder-menu, #view-tools, #theme-toggle')) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, type: e.pointerType, mode: null,
+    capture: e.target.closest('.item') || cv });
   dragged = false;
 });
 addEventListener('pointermove', e => {
   const p = pointers.get(e.pointerId);
-  if (!p) return;
+  if (!p || !cam) return;
   const g0 = gesture();
   p.x = e.clientX; p.y = e.clientY;
   const g1 = gesture();
   if (!dragged && Math.hypot(p.x - p.sx, p.y - p.sy) < 4) return;
+  if (!dragged) p.capture.setPointerCapture?.(e.pointerId);
   dragged = true; document.body.classList.add('dragging');
+  const touchOrbit = view3d && pointers.size === 2 && [...pointers.values()].every(p => p.type === 'touch');
+  p.mode ||= view3d && e.altKey ? 'orbit' : 'pan';
+  if (view3d && (p.mode === 'orbit' || touchOrbit)) {
+    e.preventDefault();
+    beginOrbit();
+    view3d.orbit(g1.x - g0.x, g1.y - g0.y);
+    if (touchOrbit && Math.abs(g1.d - g0.d) > .5 && g0.d) zoomAt(g1.d / g0.d, g1.x, g1.y);
+    wake(); return;
+  }
   // cmd+drag: up zooms in, down zooms out, anchored where the drag started
   if (e.metaKey && pointers.size === 1) return zoomAt(Math.exp((g0.y - g1.y) * .01), p.sx, p.sy);
   panBy(g1.x - g0.x, g1.y - g0.y);
@@ -1107,6 +1319,7 @@ addEventListener('pointermove', e => {
 });
 const release = e => {
   pointers.delete(e.pointerId);
+  if (pointers.size < 2) orbitDragging = false;
   if (!pointers.size) document.body.classList.remove('dragging');
   setTimeout(() => dragged = false); // Wait for the click event that follows pointerup.
 };
@@ -1114,7 +1327,7 @@ addEventListener('pointerup', release);
 addEventListener('pointercancel', release);
 
 addEventListener('wheel', e => {
-  if (e.target.closest('#playground, #folder-menu')) return;
+  if (e.target.closest('#playground, #folder-menu, #view-tools, #theme-toggle')) return;
   e.preventDefault();
   const k = e.deltaMode === 1 ? 16 : 1; // Convert line-based wheel deltas to pixels.
   if (e.ctrlKey) zoomAt(Math.exp(-e.deltaY * k * .01), e.clientX, e.clientY);
@@ -1135,6 +1348,12 @@ addEventListener('keydown', e => {
       items[next].focus(); return;
     }
   }
+  if (view3d && e.altKey && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key) &&
+      !e.target.closest('input:not([type="checkbox"]), textarea, select, [contenteditable="true"]')) {
+    e.preventDefault();
+    view3d.orbit(e.key === 'ArrowLeft' ? -16 : e.key === 'ArrowRight' ? 16 : 0, e.key === 'ArrowUp' ? -16 : e.key === 'ArrowDown' ? 16 : 0);
+    manual = !autoZoomControl.checked; wake(); return;
+  }
   if (e.key === 'Escape' && focus?.parent) return toggle(focus);
   if (!e.repeat && e.key.toLowerCase() === 'a' && !e.ctrlKey && !e.metaKey && !e.altKey &&
       !e.target.closest('input, textarea, select, [contenteditable="true"]')) {
@@ -1149,10 +1368,9 @@ addEventListener('keydown', e => {
   if (f) {
     zoomTarget = clamp((zoomTarget ?? userZoom) * f, minUserZoom(), 6);
     manual = true; wake();
-  } else { zoomTarget = 1; manual = false; wake(); }
+  } else { view3d?.reset(); zoomTarget = 1; manual = false; wake(); }
 });
 
-// Data: ?tree=<url> or tree.txt; also a picked folder or a dropped text file of paths.
 const src = new URLSearchParams(location.search).get('tree') || 'tree.txt';
 const fail = () => { countEl.textContent = `Couldn't read ${src}. Open a folder or drop a list of paths.`; };
 document.getElementById('pick').onchange = e => {

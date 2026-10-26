@@ -1,25 +1,31 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { Eye, EyeOff, RotateCcw, Option, Command, Sun, Moon } from 'lucide';
 import { parse } from './parse.js';
+import { viewProgress, gizmoProgress } from './tree-space.js';
 
-// Exercise the actual layout functions without requiring a browser or dependencies.
+// Run the actual layout and drawing functions with a minimal DOM.
 const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
 const script = html.split('<script type="module">')[1].split('const cv =')[0]
-  .replace("import { parse } from './parse.js';", '');
+  .replace(/^import .*;$/gm, '');
 const motion = { matches: true };
 const metrics = { width: 7 };
 const element = () => ({
-  setAttribute() {}, append() {}, remove() {}, style: {}, firstElementChild: { innerHTML: '' }, classList: { toggle() {} }, animations: [],
+  addEventListener() {}, setAttribute() {}, append() {}, remove() {}, style: {}, firstElementChild: { innerHTML: '' }, classList: { toggle() {}, add() {}, remove() {}, contains: () => false }, animations: [],
   getAnimations() { return this.animations; },
   animate(frames, options) {
     const animation = { ...options, frames, cancel() { this.cancelled = true; } };
     this.animations.push(animation); return animation;
   },
 });
-const context = vm.createContext({ parse, dragged: false, matchMedia: () => motion, document: {
+const context = vm.createContext({
+  Eye, EyeOff, RotateCcw, Option, Command, Sun, Moon, createIcons() {}, parse, viewProgress, gizmoProgress,
+  addEventListener() {}, getComputedStyle: () => ({ getPropertyValue: () => '#fff' }),
+  localFiles: null, view3d: null, orbitDragging: false, open: new Set(), dragged: false, matchMedia: () => motion, document: {
   createElement: tag => tag === 'canvas' ? { getContext: () => ({ measureText: s => ({ width: s.length * metrics.width }) }) } : element(),
-  body: { append() {} },
+  querySelectorAll: () => [], documentElement: { dataset: { theme: 'light' } },
+  body: { append() {}, classList: { toggle() {}, add() {}, remove() {}, contains: () => false }, style: { setProperty() {} } },
 } });
 vm.runInContext(script + `
   globalThis.folderFrames = FOLDER_FRAMES;
@@ -28,11 +34,11 @@ vm.runInContext(script + `
   globalThis.getGeometry = geometry; globalThis.growNode = grow; globalThis.discardNode = discard;
   globalThis.build = (text, route = []) => {
     labels = []; placedLabels = []; branches = [];
-    const root = parse(text);
+    const root = parse(text); open = new Set([root]);
     root.start = { x: 0, y: 0, a: -.08, depth: 0, path: '', len: Math.max(950, 70 * root.children.length + 300) };
     grow(root);
     let node = root;
-    for (const name of route) { node = node.children.find(k => k.name === name); grow(node); }
+    for (const name of route) { node = node.children.find(k => k.name === name); open.add(node); grow(node); }
     return root;
   };
 `, context);
@@ -46,7 +52,7 @@ const marks = new Set();
 for (const [type, names] of Object.entries(iconExamples)) {
   const icon = context.fileIcon(names[0]);
   assert.match(icon, new RegExp('class="file-' + type + '"'));
-  assert.match(icon, /fill="#fff"/, 'file icons remain opaque');
+  assert.match(icon, /fill="var\(--canvas-bg\)"/, 'file icons remain opaque');
   assert.match(icon, /viewBox="0 0 13 16"/, 'all file types retain the same layout size');
   marks.add(icon.replace(/class="[^"]*"/, ''));
   for (const name of names) assert.equal(context.fileIcon(name), icon, 'extensions map consistently, ignoring case');
@@ -170,7 +176,7 @@ assert.ok(narrow.children.every(k => k.stem.path.length > 2));
 metrics.width = 7;
 const interactionTree = context.build('folder/file.txt\nfile.txt');
 const folder = interactionTree.children[0], file = interactionTree.children[1];
-assert.match(file.el.innerHTML, /fill="#fff"/);
+assert.match(file.el.innerHTML, /fill="var\(--canvas-bg\)"/);
 file.el.onclick();
 assert.equal(file.el.animations.length, 0, 'reduced motion skips bounce');
 motion.matches = false;
@@ -186,12 +192,12 @@ const previous = folder.el.animations[0];
 context.bounceItem(folder);
 assert.equal(previous.cancelled, true, 'repeated clicks restart the bounce');
 assert.match(html, /\.folder-back \{[^}]*pointer-events: none/);
-assert.match(html, /const FOLDER_BACK = .*fill="#fff"/);
+assert.match(html, /const FOLDER_BACK = .*fill="var\(--canvas-bg\)"/);
 assert.match(html, /transform: scale\(1\.06\)/);
 assert.doesNotMatch(html, /skewX|skewY|rotate\(/, 'folder outlines must retain their orthogonal pixel edges');
 assert.equal((folder.el.innerHTML.match(/<svg/g) || []).length, 1, 'folder has one opaque flap');
 assert.equal(new Set(context.folderFrames).size, 5, 'hover and open states have distinct stepped silhouettes');
-for (const frame of context.folderFrames) assert.match(frame, /fill="#fff"/);
+for (const frame of context.folderFrames) assert.match(frame, /fill="var\(--canvas-bg\)"/);
 assert.doesNotMatch(html, /fold-closed|fold-open/, 'folder states never ghost through one another');
 assert.match(html, /prefers-reduced-motion: reduce/);
 assert.doesNotMatch(file.el.innerHTML, /M2 14h1/, 'document bottom row has no content line');
