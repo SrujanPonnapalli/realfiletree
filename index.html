@@ -1,0 +1,1171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Explore a file tree that grows like a pixel-art tree, with branching folders, moss, and cherry blossoms.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<title>Literal File Tree</title>
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://realfiletree.srujanponnapalli.com/">
+<meta property="og:title" content="Literal File Tree">
+<meta property="og:description" content="Explore a file tree that grows like a pixel-art tree, with branching folders, moss, and cherry blossoms.">
+<meta property="og:image" content="https://realfiletree.srujanponnapalli.com/social-preview.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="328">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Literal File Tree">
+<meta name="twitter:description" content="Explore a file tree that grows like a pixel-art tree, with branching folders, moss, and cherry blossoms.">
+<meta name="twitter:image" content="https://realfiletree.srujanponnapalli.com/social-preview.jpg">
+<style>
+  :root { --ui-ink: #353a32; --ui-muted: #60665d; --ui-border: rgb(69 89 56 / 18%); --ui-surface: rgb(248 250 245 / 62%);
+    --ui-hover: #edf4e7; --ui-accent: #557f35; --ui-focus: #88ad67;
+    --ui-shadow: 0 14px 32px rgb(37 47 31 / 16%), 0 2px 8px rgb(37 47 31 / 8%), inset 0 0 0 1px rgb(255 255 255 / 82%); }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #fff; touch-action: none; cursor: grab;
+               font: 13px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
+  body.dragging { cursor: grabbing; }
+  canvas { z-index: 1; position: fixed; left: 0; top: 0; image-rendering: pixelated; }
+  .item { z-index: 2; position: fixed; left: 0; top: 0; display: flex; align-items: center; gap: 5px; color: #555; transform-origin: 0 0;
+          white-space: nowrap; user-select: none; opacity: 0; pointer-events: none; transition: opacity .3s; }
+  .item.on { opacity: 1; pointer-events: auto; }
+  .item svg { display: block; color: #a3a3a3; transition: transform .12s; }
+  button.item { font: inherit; color: #8f8f8f; background: none; border: 0; padding: 0; border-radius: 4px; cursor: pointer; }
+  button.item.file { color: #555; }
+  button.item:focus-visible { outline: 1px solid var(--ui-accent); border-radius: 2px; }
+  /* Animate a single opaque, stepped flap instead of blending two outlines. */
+  .folder-icon { position: relative; display: block; flex: none; width: 18px; height: 14px;
+    transform-origin: center; transition: transform .16s ease-out; }
+  button.item.dir svg { color: #b5b5b5; transition: color .18s; }
+  button.item.dir:hover .folder-icon { transform: scale(1.06); }
+  button.item.dir:hover svg, button.item.dir.open svg { color: #111; }
+  button.item.dir.open { color: #555; }
+  .folder-back { position: fixed; left: 0; top: 0; transform-origin: 0 0; pointer-events: none; color: #b5b5b5; transition: color .18s; }
+  .folder-back.open, .folder-back:has(+ button.item.dir:hover) { color: #111; }
+  .folder-back svg { display: block; transform-origin: center; transition: transform .16s ease-out; }
+  .folder-back:has(+ button.item.dir:hover) svg { transform: scale(1.06); }
+  @media (prefers-reduced-motion: reduce) { button.item.dir svg, .folder-icon, .folder-back, .folder-back svg { transition: none; } }
+  #playground { z-index: 4; position: fixed; right: 16px; bottom: 16px; width: min(304px, calc(100vw - 32px)); max-height: calc(100dvh - 32px);
+    box-sizing: border-box; padding: 14px; overflow-y: auto; color: var(--ui-ink); background: var(--ui-surface);
+    border: 0; border-radius: 16px; box-shadow: var(--ui-shadow); backdrop-filter: blur(22px) saturate(1.55);
+    -webkit-backdrop-filter: blur(22px) saturate(1.55); font-size: 13px; touch-action: auto; cursor: default; }
+  #playground header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 8px; padding: 0 0 8px;
+    border-bottom: 1px solid rgb(83 108 63 / 12%); font-size: 13px; font-weight: 550; }
+  #playground .heading, #playground .header-actions { display: flex; align-items: center; }
+  #playground .heading { gap: 9px; min-width: 0; }
+  #playground .header-actions { gap: 4px; }
+  #count { max-width: 124px; overflow: hidden; color: var(--ui-muted); font-size: 12px; font-weight: 500;
+    font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+  #playground button { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 10px;
+    color: var(--ui-ink); background: #f5f6f3; border: 1px solid var(--ui-border); border-radius: 7px;
+    font: inherit; font-weight: 550; cursor: pointer; transition: background-color .14s, border-color .14s, color .14s, transform .14s; }
+  #playground button:hover { color: #345524; background: var(--ui-hover); border-color: rgb(85 127 53 / 24%); }
+  #playground button:active { transform: translateY(1px); }
+  #playground button:focus-visible, #playground input:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+  #playground #reset-controls { width: 32px; height: 32px; min-height: 32px; padding: 0; color: var(--ui-muted); background: transparent; border-color: transparent; }
+  #playground #toggle-ui { width: 38px; height: 34px; min-height: 34px; padding: 4px; color: var(--ui-muted); background: rgb(255 255 255 / 48%); }
+  #playground #choose-folder { color: #345524; background: rgb(237 244 231 / 78%); border-color: rgb(85 127 53 / 18%); }
+  #panel-content { position: relative; z-index: 1; }
+  body.ui-hidden #panel-content { display: none; }
+  body.ui-hidden #playground { width: 40px; max-height: none; padding: 0; overflow: visible; background: transparent; border: 0;
+    box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  body.ui-hidden #playground header, body.ui-hidden #panel-content, body.ui-hidden #choose-folder { display: none; }
+  body.ui-hidden #panel-footer { margin: 0; padding: 0; border: 0; }
+  body.ui-hidden #toggle-ui { width: 40px; height: 40px; min-height: 40px; padding: 0; border: 0; border-radius: 0;
+    background: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  body.ui-hidden #toggle-ui:hover { background: transparent; border-color: transparent; }
+  #playground .control { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; align-items: center; margin-top: 9px;
+    color: var(--ui-muted); font-size: 13px; font-weight: 500; }
+  #playground .control.toggle { grid-template-columns: 1fr auto; }
+  #playground .control.toggle kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px;
+    box-sizing: border-box; margin-left: 7px; padding: 0 5px; border: 1px solid rgb(69 89 56 / 20%); border-bottom: 2px solid rgb(69 89 56 / 30%);
+    border-radius: 5px; color: #50574c; background: linear-gradient(#fff, #f3f5f0); box-shadow: 0 1px 2px rgb(37 47 31 / 10%);
+    font: inherit; font-size: 11px; font-weight: 600; line-height: 1; vertical-align: 1px; }
+  #playground .control.toggle input { appearance: none; grid-column: auto; width: 36px; height: 21px; margin: 0; padding: 0;
+    border: 1px solid rgb(69 89 56 / 18%); border-radius: 99px; background: #dfe3db; cursor: pointer;
+    transition: background-color .16s, border-color .16s; }
+  #playground .control.toggle input::before { content: ""; display: block; width: 15px; height: 15px; margin: 2px;
+    border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgb(37 47 31 / 22%); transition: transform .16s; }
+  #playground .control.toggle input:checked { border-color: var(--ui-accent); background: var(--ui-accent); }
+  #playground .control.toggle input:checked::before { transform: translateX(15px); }
+  #playground .control.toggle input:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+  #playground .value-actions { display: flex; align-items: center; justify-content: flex-end; }
+  #playground .reset-one { box-sizing: border-box; flex: 0 0 25px; width: 25px; min-width: 0; min-height: 25px; height: 25px; margin-left: 5px;
+    padding: 0; overflow: hidden; color: var(--ui-muted); border-color: transparent; background: transparent;
+    transition: flex-basis .18s ease, margin-left .18s ease, opacity .14s, color .14s, background-color .14s; }
+  #playground .reset-one:disabled { flex-basis: 0; margin-left: 0; border-width: 0; opacity: 0; pointer-events: none; }
+  #playground #reset-controls:disabled { opacity: .35; cursor: default; }
+  #playground .lucide { display: block; width: 18px; height: 18px; stroke-width: 1.8; }
+  #playground #toggle-ui .lucide { width: 20px; height: 20px; }
+  #playground output { display: grid; overflow: hidden; height: 1.2em; align-items: center; color: var(--ui-ink); font-variant-numeric: tabular-nums; }
+  #playground output > .value-line { grid-area: 1 / 1; display: flex; white-space: nowrap; }
+  #playground .value-char { display: inline-grid; overflow: hidden; height: 1.2em; line-height: 1.2; }
+  #playground .value-char > span { grid-area: 1 / 1; }
+  #playground input:not([type="checkbox"]) { grid-column: 1 / -1; appearance: none; width: 100%; height: 20px; margin: 0; padding: 0;
+    background: transparent; cursor: pointer; touch-action: pan-x; }
+  #playground input::-webkit-slider-runnable-track { height: 5px; background: #dfe3db; border-radius: 99px; }
+  #playground input::-moz-range-track { height: 5px; background: #dfe3db; border-radius: 99px; }
+  #playground input::-webkit-slider-thumb { appearance: none; width: 17px; height: 17px; margin-top: -6px; border: 2px solid #fff;
+    border-radius: 50%; background: var(--ui-accent); box-shadow: 0 0 0 1px var(--ui-accent); }
+  #playground input::-moz-range-thumb { width: 14px; height: 14px; border: 2px solid #fff; border-radius: 50%;
+    background: var(--ui-accent); box-shadow: 0 0 0 1px var(--ui-accent); }
+  #playground input:hover::-webkit-slider-thumb, #playground input:hover::-moz-range-thumb { background: #456d2b; }
+  #panel-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 12px; padding-top: 12px;
+    border-top: 1px solid rgb(83 108 63 / 12%); }
+  #panel-footer .footer-actions { display: flex; align-items: center; gap: 8px; }
+  #pick { display: none; }
+  #playground::-webkit-scrollbar { width: 8px; }
+  #playground::-webkit-scrollbar-thumb { background: rgb(83 108 63 / 25%); border: 2px solid transparent; border-radius: 8px; background-clip: padding-box; }
+  #folder-menu { z-index: 6; position: fixed; display: grid; gap: 2px; width: 176px; box-sizing: border-box; padding: 6px;
+    color: var(--ui-ink); background: var(--ui-surface); border: 0; border-radius: 12px;
+    box-shadow: var(--ui-shadow); backdrop-filter: blur(22px) saturate(1.55); -webkit-backdrop-filter: blur(22px) saturate(1.55);
+    font: 13px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
+  #folder-menu[hidden] { display: none; }
+  #folder-menu button { display: flex; align-items: center; width: 100%; min-height: 32px; padding: 0 9px; color: var(--ui-ink);
+    background: transparent; border: 0; border-radius: 7px; font: inherit; text-align: left; cursor: pointer; }
+  #folder-menu button:hover, #folder-menu button:focus-visible { color: #345524; background: var(--ui-hover); outline: 0; }
+  #folder-menu button:focus-visible { box-shadow: inset 0 0 0 2px var(--ui-focus); }
+  @media (prefers-reduced-motion: reduce) { #folder-menu, #folder-menu button { transition: none; } }
+  @media (prefers-reduced-transparency: reduce) { #folder-menu { background: rgb(248 250 245 / 96%); backdrop-filter: none; -webkit-backdrop-filter: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    #playground button, #playground input[type="checkbox"], #playground input[type="checkbox"]::before, #playground .reset-one { transition: none; }
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    #playground { background: rgb(248 250 245 / 96%); }
+  }
+  @media (max-width: 520px) {
+    #playground { right: 8px; bottom: 8px; width: min(304px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); }
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<aside id="playground" aria-label="Tree appearance controls">
+  <header><span class="heading"><span id="count" aria-live="polite"></span></span><span class="header-actions">
+    <button id="reset-controls" type="button" aria-label="Reset tree controls" title="Reset controls" disabled>
+    <i class="ui-icon" data-lucide="rotate-ccw" aria-hidden="true"></i>
+    </button>
+  </span></header>
+  <div id="panel-content">
+  <input id="pick" type="file" webkitdirectory hidden>
+  <div class="control"><label for="pixel-control">Pixel size</label><span class="value-actions"><output id="pixel-value">3</output><button class="reset-one" type="button" data-reset="pixel-control" aria-label="Reset pixel size" title="Reset pixel size" disabled><i class="ui-icon" data-lucide="rotate-ccw" aria-hidden="true"></i></button></span><input id="pixel-control" type="range" min="2" max="6" step="1" value="3"></div>
+  <div class="control"><label for="growth-control">Growth pace</label><span class="value-actions"><output id="growth-value">1.0×</output><button class="reset-one" type="button" data-reset="growth-control" aria-label="Reset growth pace" title="Reset growth pace" disabled><i class="ui-icon" data-lucide="rotate-ccw" aria-hidden="true"></i></button></span><input id="growth-control" type="range" min="0.5" max="2" step="0.1" value="1"></div>
+  <div class="control"><label for="blossom-control">Blossom size</label><span class="value-actions"><output id="blossom-value">1.0×</output><button class="reset-one" type="button" data-reset="blossom-control" aria-label="Reset blossom size" title="Reset blossom size" disabled><i class="ui-icon" data-lucide="rotate-ccw" aria-hidden="true"></i></button></span><input id="blossom-control" type="range" min="0.5" max="2" step="0.1" value="1"></div>
+  <div class="control"><label for="branch-control">Branch thickness</label><span class="value-actions"><output id="branch-value">1.0×</output><button class="reset-one" type="button" data-reset="branch-control" aria-label="Reset branch thickness" title="Reset branch thickness" disabled><i class="ui-icon" data-lucide="rotate-ccw" aria-hidden="true"></i></button></span><input id="branch-control" type="range" min="0.5" max="2" step="0.1" value="1"></div>
+  <div class="control"><label for="moss-control">Moss coverage</label><span class="value-actions"><output id="moss-value">1.0×</output><button class="reset-one" type="button" data-reset="moss-control" aria-label="Reset moss coverage" title="Reset moss coverage" disabled><i class="ui-icon" data-lucide="rotate-ccw" aria-hidden="true"></i></button></span><input id="moss-control" type="range" min="0" max="2" step="0.1" value="1"></div>
+  <div class="control toggle"><label for="auto-zoom">Auto zoom to fit tree <kbd>A</kbd></label><input id="auto-zoom" type="checkbox" aria-keyshortcuts="A"></div>
+  </div>
+  <div id="panel-footer"><span class="footer-actions">
+    <button id="choose-folder" type="button">Open folder…</button><button id="toggle-ui" type="button" aria-label="Hide controls" title="Hide controls" aria-controls="panel-content" aria-expanded="true"><span id="toggle-icon"><i class="ui-icon" data-lucide="eye-off" aria-hidden="true"></i></span></button>
+  </span></div>
+</aside>
+<div id="folder-menu" role="menu" aria-label="Folder actions" hidden>
+  <button id="folder-menu-toggle" type="button" role="menuitem" tabindex="-1">Expand folder</button>
+  <button id="folder-menu-copy" type="button" role="menuitem" tabindex="-1">Copy path</button>
+</div>
+<script type="module">
+import { parse } from './parse.js';
+import { createIcons, Eye, EyeOff, RotateCcw } from 'lucide';
+const lucideIcons = { Eye, EyeOff, RotateCcw };
+
+let PX = 3;          // screen pixels per canvas pixel
+let growthPace = 1, blossomScale = 1, branchScale = 1, mossCoverage = 1;
+const STEP = 4;      // world units between branch points
+const SKETCH = .12;  // seconds before a point starts thickening
+const THICKEN = 1.8; // seconds for a point to reach full branch thickness
+const TWIG_SPEED = 220;
+const C = { core: '#8d8a82', core2: '#a9a69d', edge: '#1e1c1a', edge2: '#5a4c40', tip: '#c2aba0', bud: '#b4232c',
+            moss: ['#9fe01b', '#cdf23f'], mossDark: '#3e8f17', mossLight: '#eef77a' };
+const PETALS = ['#ffc0d3', '#ffb3c9', '#ffd6e2', '#f7a1bd'], CORES = ['#e0567f', '#f5d76e'];
+const pixels = (cls, rows, fill = '') => `<svg class="${cls}" viewBox="0 0 ${rows[0].length} ${rows.length}" width="${rows[0].length}" ` +
+  `height="${rows.length}" shape-rendering="crispEdges">${fill ? `<path fill="#fff" d="${fill}"/>` : ''}<path fill="currentColor" d="${
+  rows.flatMap((row, y) => [...row].map((c, x) => c === '#' ? `M${x} ${y}h1v1h-1z` : '')).join('')}"/></svg>`;
+const FOLDER_BACK = `<svg viewBox="0 0 18 14" width="18" height="14" shape-rendering="crispEdges"><path fill="#fff" stroke="currentColor" stroke-width="1" d="M.5 13.5V2.5H1.5V1.5H2.5V.5H8.5V1.5H9.5V2.5H15.5V13.5Z"/></svg>`;
+const FOLDER_FRAMES = Array.from({ length: 5 }, (_, frame) => {
+  const amount = frame / 4, top = 4 + Math.round(amount), rows = Array(14).fill('..................');
+  let fill = '';
+  for (let y = top; y < 14; y++) {
+    const t = (y - top) / (13 - top), left = Math.round(4 * amount * (1 - t)), right = 18 - Math.round(3 * amount * t);
+    rows[y] = '.'.repeat(left) + (y === top || y === 13 ? '#'.repeat(right - left) : '#' + '.'.repeat(right - left - 2) + '#') + '.'.repeat(18 - right);
+    fill += `M${left} ${y}h${right - left}v1h-${right - left}z`;
+  }
+  return pixels('folder-front', rows, fill);
+});
+const FOLDER = '<span class="folder-icon" aria-hidden="true">' + FOLDER_FRAMES[0] + '</span>';
+const FILE_ROWS = [
+  '#########....',
+  '#.......##...',
+  '#.......#.#..',
+  '#.......#..#.',
+  '#.......#####',
+  '#...........#',
+  '#.####......#',
+  '#...........#',
+  '#.#########.#',
+  '#...........#',
+  '#.#########.#',
+  '#...........#',
+  '#.#########.#',
+  '#...........#',
+  '#...........#',
+  '#############'];
+const FILE_FILL = 'M0 0H9V1H10V2H11V3H12V4H13V16H0Z';
+const FILE = pixels('file-document', FILE_ROWS, FILE_FILL);
+const FILE_GLYPHS = {
+  image: ['..##.....', '..##.....', '.........', '....##...', '...####..', '.###..##.', '##.....##'],
+  code: ['..#..#...', '.#...#.#.', '#...#...#', '.#..#..#.', '..#.#.#..', '...#.....', '...#.....'],
+  audio: ['....#####', '....#...#', '....#...#', '....#...#', '.####.###', '#####.###', '.###.....'],
+  video: ['..#......', '..###....', '..#####..', '..#######', '..#####..', '..###....', '..#......'],
+  table: ['#########', '#..#..#.#', '#########', '#..#..#.#', '#########', '#..#..#.#', '#########'],
+  archive: ['...###...', '...#.#...', '...###...', '...#.#...', '...###...', '..#####..', '..#...#..'],
+};
+const FILE_ICONS = Object.fromEntries(Object.entries(FILE_GLYPHS).map(([type, mark]) => [type,
+  pixels('file-' + type, FILE_ROWS.map((row, y) => y >= 6 && y < 14 ? '#.' + (mark[y - 6] || '.........') + '.#' : row), FILE_FILL)]));
+const FILE_EXTENSIONS = {
+  image: ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'avif', 'heic', 'tif', 'tiff', 'bmp', 'raw'],
+  code: ['js', 'jsx', 'ts', 'tsx', 'mjs', 'cjs', 'py', 'rb', 'go', 'rs', 'java', 'c', 'h', 'cpp', 'css', 'html', 'json', 'geojson', 'yaml', 'yml', 'toml', 'sh', 'sql', 'swift'],
+  audio: ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'aiff'],
+  video: ['mp4', 'mov', 'webm', 'avi', 'mkv'],
+  table: ['csv', 'tsv', 'xlsx', 'xls', 'ods'],
+  archive: ['zip', 'gz', 'tar', '7z', 'rar', 'bz2', 'xz'],
+};
+function fileIcon(name) {
+  const extension = name.split('.').pop().toLowerCase();
+  const type = Object.keys(FILE_EXTENSIONS).find(type => FILE_EXTENSIONS[type].includes(extension));
+  return FILE_ICONS[type] || FILE;
+}
+
+const Q = 1.9; // Labels and icons use tree units so they scale with zoom.
+const measure = Object.assign(document.createElement('canvas').getContext('2d'),
+  { font: '13px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif' });
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const hash = (a, b) => { const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return v - Math.floor(v); };
+
+function rng(str) {
+  let a = [...str].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619), 2166136261) >>> 0;
+  return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+
+// Seeded by path so each branch keeps its shape when it regrows.
+function spine(x, y, ang, len, depth, path) {
+  const r = rng(path + '#spine'), steps = Math.max(2, Math.round(len / STEP)), out = [];
+  const f1 = 6 + r() * 8, p1 = r() * 6, f2 = 18 + r() * 16, p2 = r() * 6;
+  const kinks = [], knots = [];
+  for (let k = 0, n = 1 + (r() < .5); k < n; k++) kinks.push({ t: .15 + r() * .7, da: (r() < .5 ? -1 : 1) * (.12 + r() * .16) });
+  for (let k = 0, n = 1 + (r() * 3 | 0); k < n; k++) knots.push({ t: .08 + r() * .75, size: r() < .4 ? 2 : 1 });
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    let a = (depth ? ang * (1 - .8 * t) + Math.sin(t * 6 + depth) * .12 : ang + Math.sin(t * 8.5) * .45)
+          + Math.sin(t * f1 + p1) * .09 + Math.sin(t * f2 + p2) * .04 + (r() - .5) * .15;
+    for (const k of kinks) if (t > k.t) a += k.da;
+    if (depth) a = ang < 0 ? clamp(a, -1.5, -.2) : clamp(a, .2, 1.5);
+    let bulge = 0, knot = false;
+    for (const k of knots) {
+      const di = Math.abs(t - k.t) * steps;
+      if (di < 4) bulge = Math.max(bulge, Math.round(k.size * (1 - di / 4) + .3));
+      if (di < .5) knot = true;
+    }
+    out.push({ x, y, t, a, bulge, knot });
+    x += Math.cos(a) * STEP; y += Math.sin(a) * STEP;
+  }
+  return out;
+}
+
+function stem(p, x, y, side) {
+  const dx = Math.cos(p.a), dy = Math.sin(p.a), nx = -dy * side, ny = dx * side;
+  const length = Math.hypot(x - p.x, y - p.y), steps = Math.max(8, Math.ceil(length / STEP));
+  const c1 = { x: p.x + (dx * .8 + nx * .6) * length * .4, y: p.y + (dy * .8 + ny * .6) * length * .4 };
+  const c2 = { x: x - (dx * .1 + nx * .3) * length, y: y - (dy * .1 + ny * .3) * length };
+  const points = [];
+  let distance = 0;
+  for (let j = 0; j <= steps; j++) {
+    const t = j / steps, u = 1 - t;
+    const q = { x: u ** 3 * p.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t ** 3 * x,
+                y: u ** 3 * p.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t ** 3 * y };
+    if (j) distance += Math.hypot(q.x - points[j - 1].x, q.y - points[j - 1].y);
+    points.push({ ...q, d: distance });
+  }
+  return points;
+}
+
+function inside(p, b, margin = 0) {
+  const pad = margin + (p.r || 0);
+  return p.x > b.x0 - pad && p.x < b.x1 + pad && p.y > b.y0 - pad && p.y < b.y1 + pad;
+}
+
+function geometry(b, exclude, solidOnly = false) {
+  const points = b.pts.map(p => ({ x: p.x, y: p.y, r: Math.max(12, (p.w - 1) * STEP / 2 + 2) }));
+  for (const tw of b.twigs) {
+    if (solidOnly && !tw.path) continue;
+    if (tw.path) {
+      const tip = tw.path.at(-1);
+      points.push(...tw.path.filter(p => tw !== exclude || Math.hypot(p.x - tip.x, p.y - tip.y) > 26)
+        .map(p => ({ ...p, r: Math.max(1, Math.round((tw.width || 1) * Math.max(0, 1 - p.d / tw.len) ** .7)) * STEP / 2 })));
+      continue;
+    }
+    const p = b.pts[tw.i];
+    for (let d = 0; d <= tw.len; d += STEP)
+      points.push({ x: p.x + Math.cos(tw.a) * d, y: p.y + Math.sin(tw.a) * d, r: 3 });
+    if (tw.fork) {
+      const x = p.x + Math.cos(tw.a) * tw.fork.at * tw.len, y = p.y + Math.sin(tw.a) * tw.fork.at * tw.len;
+      for (let d = 0; d <= tw.fork.len * tw.len; d += STEP)
+        points.push({ x: x + Math.cos(tw.a + tw.fork.da) * d, y: y + Math.sin(tw.a + tw.fork.da) * d, r: 3 });
+    }
+  }
+  if (!solidOnly) points.push(...b.blossoms.map(p => ({ ...p, r: 18 })));
+  return points;
+}
+
+function spatial(points) {
+  const cells = new Map(), size = 64;
+  const scan = (x0, y0, x1, y1, visit) => {
+    for (let x = Math.floor(x0 / size); x <= Math.floor(x1 / size); x++)
+      for (let y = Math.floor(y0 / size); y <= Math.floor(y1 / size); y++)
+        if (visit(x + ',' + y)) return true;
+    return false;
+  };
+  const add = p => scan(p.x - (p.r || 0), p.y - (p.r || 0), p.x + (p.r || 0), p.y + (p.r || 0), key => {
+    if (!cells.has(key)) cells.set(key, []);
+    cells.get(key).push(p);
+  });
+  points.forEach(add);
+  return {
+    add,
+    near: (p, pad) => scan(p.x - pad, p.y - pad, p.x + pad, p.y + pad,
+      key => cells.get(key)?.some(o => (p.x - o.x) ** 2 + (p.y - o.y) ** 2 < ((o.r || 0) + pad) ** 2)),
+    overlaps: (b, pad) => scan(b.x0 - pad, b.y0 - pad, b.x1 + pad, b.y1 + pad,
+      key => cells.get(key)?.some(p => inside(p, b, pad))),
+  };
+}
+
+function detour(node, wood) {
+  const { len } = node.start, grid = 12;
+  let best = null;
+  for (const side of [-1, 1]) {
+    const origin = { x: node.x + Q, y: node.y + 3 * Q };
+    const icon = { x0: node.x - 9 * Q - 8, x1: node.x + 9 * Q + 8, y0: node.y - 7 * Q, y1: node.y + 7 * Q };
+    const point = (i, j) => ({ x: origin.x + i * grid, y: origin.y + j * grid });
+    const blocked = p => (inside(p, icon, 4) && !(p.x > node.x - 12 && p.x < node.x + 6 && p.y <= origin.y)) || placedLabels.some(b => inside(p, b === node.rect ? { ...b, x0: b.textX0 } : b, 12)) ||
+      (Math.hypot(p.x - origin.x, p.y - origin.y) > 18 &&
+       wood.near(p, 12));
+    const ti = Math.ceil(len * .85 / grid);
+    let tj = side * Math.ceil(len * .5 / grid), attempts = 0;
+    while (blocked(point(ti, tj)) && attempts++ < 120) tj += side;
+    if (blocked(point(ti, tj))) continue;
+    const heuristic = (i, j) => Math.hypot(ti - i, tj - j);
+    const start = { i: 0, j: 0, g: 0, f: heuristic(0, 0), prev: null };
+    const pending = [start], costs = new Map([['0,0', 0]]);
+    let end = null;
+    for (let visited = 0; pending.length && visited < 12000; visited++) {
+      let index = 0;
+      for (let n = 1; n < pending.length; n++) if (pending[n].f < pending[index].f) index = n;
+      const current = pending.splice(index, 1)[0];
+      if (current.g > costs.get(current.i + ',' + current.j)) continue;
+      if (current.i === ti && current.j === tj) { end = current; break; }
+      for (const [di, dj] of [[1,0],[1,-1],[1,1],[0,-1],[0,1],[-1,-1],[-1,1],[-1,0]]) {
+        // Exit through the mouth before routing around the folder toward either destination.
+        if (Math.abs(current.i) <= 1 && current.j > -2 && dj !== -1) continue;
+        const i = current.i + di, j = current.j + dj;
+        if (i < -Math.ceil(len / grid) || i > ti + Math.ceil(len / grid) || Math.abs(j) > Math.abs(tj) + Math.ceil(len / grid)) continue;
+        const g = current.g + Math.hypot(di, dj) + Math.abs(i * tj - j * ti) / Math.hypot(ti, tj) * .015, key = i + ',' + j;
+        if (g >= (costs.get(key) ?? Infinity)) continue;
+        let clear = true;
+        for (let t = .2; t <= 1; t += .2) if (blocked(point(current.i + di * t, current.j + dj * t))) { clear = false; break; }
+        if (!clear) continue;
+        costs.set(key, g); pending.push({ i, j, g, f: g + heuristic(i, j), prev: current });
+      }
+    }
+    if (!end || (best && end.g >= best.cost)) continue;
+    const corners = [];
+    for (let p = end; p; p = p.prev) corners.push(point(p.i, p.j));
+    corners.reverse();
+    // Smooth the full route without moving points into obstacles.
+    let curve = corners;
+    for (const radius of [7, 4, 2]) for (let pass = 0; pass < 3; pass++) {
+      const next = curve.map((p, i) => {
+        if (!i || i === curve.length - 1) return p;
+        let x = 0, y = 0, total = 0;
+        for (let j = -radius; j <= radius; j++) {
+          const q = curve[clamp(i + j, 0, curve.length - 1)], weight = radius + 1 - Math.abs(j);
+          x += q.x * weight; y += q.y * weight; total += weight;
+        }
+        return { x: x / total, y: y / total };
+      });
+      curve = next.map((p, i) => {
+        if (!blocked(p)) return p;
+        const old = curve[i];
+        for (const blend of [.5, .25, .125]) {
+          const q = { x: old.x + (p.x - old.x) * blend, y: old.y + (p.y - old.y) * blend };
+          if (!blocked(q)) return q;
+        }
+        return old;
+      });
+    }
+    {
+      const amplitude = 16;
+      const next = curve.map((p, i) => {
+        if (!i || i === curve.length - 1) return p;
+        const a = curve[i - 1], b = curve[i + 1], length = Math.hypot(b.x - a.x, b.y - a.y);
+        const t = i / (curve.length - 1), offset = Math.sin(t * Math.PI) ** 2 * Math.sin(t * Math.PI * 4) * amplitude;
+        return { x: p.x - (b.y - a.y) / length * offset, y: p.y + (b.x - a.x) / length * offset };
+      });
+      curve = next.map((p, i) => {
+        if (!blocked(p)) return p;
+        const opposite = { x: 2 * curve[i].x - p.x, y: 2 * curve[i].y - p.y };
+        return blocked(opposite) ? curve[i] : opposite;
+      });
+    }
+    const sampled = [];
+    for (let j = 1; j < curve.length; j++) {
+      const a = curve[j - 1], b = curve[j], n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / STEP));
+      for (let k = 0; k < n; k++) sampled.push({ x: a.x + (b.x - a.x) * k / n, y: a.y + (b.y - a.y) * k / n,
+        a: Math.atan2(b.y - a.y, b.x - a.x), bulge: 0, knot: false });
+    }
+    sampled.push({ ...curve.at(-1), a: sampled.at(-1).a, bulge: 0, knot: false });
+    best = { s: sampled, cost: end.g };
+  }
+  return best;
+}
+
+function grow(node) {
+  const { x: x0, y: y0, a: ang, len, depth, path } = node.start;
+  const retainedBranches = branches.filter(b => open?.has(b.owner)); // Ignore branches that are closing.
+  const others = retainedBranches.flatMap(b => geometry(b, node.stem, true));
+  const wood = spatial(others);
+  let best = null;
+  const headings = depth ? Array.from({ length: 42 }, (_, i) => i < 21 ? -(.3 + i * .06) : .3 + (i - 21) * .06) : [ang];
+  for (const heading of headings) {
+    const y = depth ? node.y + 3 * Q : y0;
+    const s = spine(x0, y, heading, len, depth, path);
+    let first = s.length;
+    if (depth) for (let j = 0; j < s.length; j++) {
+      const q = s[j];
+      const thickness = Math.max(1, Math.round(3.4 * (1 - (j / (s.length - 1)) ** 2.5))) + (q.bulge || 0);
+      const labelHit = placedLabels.some(b => inside(q, b === node.rect ? { ...b, x0: b.textX0 } : b, thickness * STEP / 2 + 4));
+      const woodHit = j > 5 && wood.near(q, 16);
+      if (labelHit || woodHit) { first = j; break; }
+    }
+    const cost = (s.length - first) * 100 + Math.abs(heading - ang);
+    if (!best || cost < best.cost) best = { s: s.slice(0, first), cost };
+  }
+  if (depth && best.s.length < len / STEP * .8) best = detour(node, wood) || best;
+  if (best.s.length < 2) {
+    // Use the clearest short outlet when no full route is available.
+    let outlet = [];
+    for (const heading of Array.from({ length: 21 }, (_, i) => -1.5 + i * .15)) {
+      const candidate = spine(x0, node.y + 3 * Q, heading, STEP * 24, depth, path);
+      let clear = candidate.length;
+      for (let j = 6; j < candidate.length; j++) {
+        const q = candidate[j], labelHit = placedLabels.some(b => inside(q, b === node.rect ? { ...b, x0: b.textX0 } : b, 16));
+        if (labelHit || wood.near(q, 16)) { clear = j; break; }
+      }
+      if (clear > outlet.length) outlet = candidate.slice(0, clear);
+    }
+    best.s = outlet.length > 1 ? outlet : spine(x0, node.y + 3 * Q, 1.5, STEP * 8, depth, path).slice(0, 9);
+  }
+  const sp = best.s, steps = sp.length - 1, r = rng(path);
+  const pts = [], twigs = [], moss = [], blossoms = [];
+  let patch = 0;
+  for (let i = 0; i <= steps; i++) {
+    const { x, y, a } = sp[i], t = i / steps;
+    // tr is the growth-front arrival fraction; w is the mature width.
+    pts.push({ x, y, t, tr: 1 - Math.sqrt(1 - t), a, bud: r() < .05, knot: sp[i].knot,
+               w: Math.max(1, Math.round((depth ? 3.4 : 5.5) * (1 - t ** 2.5))) + sp[i].bulge });
+    const base = (1 - t) ** 4;
+    if (patch <= 0 && r() < mossCoverage * ((depth ? .03 : .05) + .25 * base)) patch = 4 + r() * 22 * (1 - t * .5);
+    const inPatch = patch-- > 0;
+    if (t < .92 && r() < mossCoverage * (inPatch ? .45 : .03)) {
+      const rad = inPatch ? (r() < .15 + .5 * base ? 2.2 + r() * 2.5 : .9 + r() * 1.4) * (1 + 1.2 * base) : .6 + r() * .6;
+      const atFolder = depth && t < .12;
+      moss.push({ i, side: r() < .7 || atFolder ? -1 : 1, off: r() * rad * 1.6, r: atFolder ? Math.min(rad, 2.6) : rad, ax: atFolder ? .9 : .8 + r() * 1.1,
+                  delay: .3 + r() * .3, dur: .4 + r() * .6, seed: r() * 1000 });
+    }
+    if (t > .05 && t < .9 && r() < .03) {
+      pts[i].w++;
+      twigs.push({ i, a: a + (r() < .5 ? -1 : 1) * (.35 + r() * .4), len: 40 + r() * 100, delay: .05 + r() * .25,
+                   seed: r() * 1000, fork: r() < .55 ? { at: .45 + r() * .35, da: (r() < .5 ? -1 : 1) * (.3 + r() * .3), len: .3 + r() * .4 } : null });
+    }
+  }
+  const end = pts.length - 1;
+  for (const da of [-.45, .4]) twigs.push({ i: end, a: pts[end].a + da + (r() - .5) * .3, len: 60 + r() * 60, delay: 0, seed: r() * 1000 });
+
+  for (const older of retainedBranches) for (const tw of older.twigs) if (!tw.path) {
+    const p = older.pts[tw.i];
+    for (let d = 0; d <= tw.len; d += STEP) {
+      const x = p.x + Math.cos(tw.a) * d, y = p.y + Math.sin(tw.a) * d;
+      if (pts.some(q => (q.x - x) ** 2 + (q.y - y) ** 2 < 22 ** 2)) { tw.len = Math.max(0, d - STEP); tw.fork = null; break; }
+    }
+  }
+  for (const tw of twigs) {
+    const p = pts[tw.i];
+    for (let d = STEP; d <= tw.len; d += STEP) {
+      const q = { x: p.x + Math.cos(tw.a) * d, y: p.y + Math.sin(tw.a) * d };
+      if (placedLabels.some(b => inside(q, b, 14)) || wood.near(q, 6)) {
+        tw.len = d - STEP; tw.fork = null; break;
+      }
+    }
+  }
+  for (const b of [...retainedBranches, { pts, twigs }]) for (const tw of b.twigs) if (tw.fork) {
+    const p = b.pts[tw.i], f = tw.fork;
+    const x = p.x + Math.cos(tw.a) * f.at * tw.len, y = p.y + Math.sin(tw.a) * f.at * tw.len;
+    for (let d = 0; d <= f.len * tw.len; d += STEP) {
+      const q = { x: x + Math.cos(tw.a + f.da) * d, y: y + Math.sin(tw.a + f.da) * d };
+      if (placedLabels.some(box => inside(q, box, 14)) ||
+          (b.pts === pts ? wood.near(q, 6) : pts.some(p => (p.x - q.x) ** 2 + (p.y - q.y) ** 2 < 22 ** 2))) {
+        tw.fork = null; break;
+      }
+    }
+  }
+  const obstacles = [...retainedBranches.flatMap(b => geometry(b)), ...geometry({ pts, twigs, blossoms })];
+  const occupied = spatial(obstacles), ownWood = spatial(pts.map(p => ({ ...p, r: 8 })));
+  const M = 28, G = 48; // branch and label clearances, in tree units
+  const blocked = b => placedLabels.some(o => b.x0 < o.x1 + G && b.x1 > o.x0 - G && b.y0 < o.y1 + G && b.y1 > o.y0 - G) ||
+    occupied.overlaps(b, M);
+
+  const dur = .6 + steps * STEP / 4000;
+  const kids = node.children, n = kids.length, anchors = [], stems = [];
+  const junctionGap = Math.min(8, Math.max(1, Math.floor(steps / Math.max(1, n * 2))));
+  kids.forEach((k, i) => {
+    const ideal = Math.round((.35 + .6 * (n === 1 ? .5 : i / (n - 1))) * steps);
+    const preferred = (i + (depth ? 1 : 0)) % 2 ? 1 : -1; // Alternate label sides; root labels start above.
+    // Keep labels beside the icon and on the side opposite their branch outlet.
+    const tw = measure.measureText(k.name + (k.children ? '/' : '')).width, half = k.children ? 9 : 6.5;
+    const base = k.children ? 42 : 48;
+    const spot = (j, s, d) => {
+      const q = pts[clamp(j, 0, steps)], x = q.x + Math.cos(q.a) * d * .55 - Math.sin(q.a) * s * d,
+        y = q.y + Math.sin(q.a) * d * .55 + Math.cos(q.a) * s * d;
+      return { j: clamp(j, 0, steps), s, d, x, y, rect: { x0: x - half * Q, x1: x + (half + 5 + tw) * Q, y0: y - 8 * Q, y1: y + 8 * Q } };
+    };
+    const slots = [...new Set([ideal, ...Array.from({ length: steps + 1 }, (_, j) => j)])]
+      .sort((a, b) => Math.abs(a - ideal) - Math.abs(b - ideal));
+    let pick = null, fallback = null;
+    search: for (let d = base; d <= base + 600; d += 10)
+      for (const s of [preferred, -preferred])
+        for (const slot of slots) {
+          const c = spot(slot, s, d);
+          if (blocked(c.rect)) continue;
+          fallback ||= c;
+          if (anchors.some(j => Math.abs(j - c.j) < junctionGap)) continue;
+          const q = pts[c.j], nx = -Math.sin(q.a) * s, ny = Math.cos(q.a) * s;
+          c.path = stem(q, c.x, c.y, s);
+          const icon = { x0: c.x - half * Q, x1: c.x + half * Q, y0: c.y - 8 * Q, y1: c.y + 8 * Q };
+          const end = c.path.findIndex(p => inside(p, icon, 6));
+          if (end >= 0) c.path = c.path.slice(0, end);
+          if (c.path.length < 2) continue;
+          if (c.path.slice(2).some(p => placedLabels.some(b => inside(p, b, 18)))) continue;
+          if (c.path.slice(2).some(p => wood.near(p, 8))) continue;
+          if (c.path.some(p => Math.hypot(p.x - q.x, p.y - q.y) > 32 && ownWood.near(p, 10))) continue;
+          if (c.path.some(p => stems.some(path => path.some(q => Math.hypot(p.x - q.x, p.y - q.y) < 14)))) continue;
+          pick = c; break search;
+        }
+    if (!pick) {
+      pick = fallback || spot(steps, preferred, base);
+      pick.path = stem(pts[pick.j], pick.x, pick.y, pick.s);
+    }
+    const idx = pick.j, p = pts[idx], side = pick.s, d = pick.d;
+    const nx = -Math.sin(p.a) * side, ny = Math.cos(p.a) * side;
+    anchors.push(idx); stems.push(pick.path);
+    k.stem = { i: idx, path: pick.path, len: pick.path.at(-1).d, width: p.w, delay: .05, stalk: true };
+    twigs.push(k.stem);
+    k.tr = p.tr + (k.stem.delay + k.stem.len / TWIG_SPEED) / dur;
+    pick.rect.textX0 = pick.x + (half + 5) * Q;
+    placedLabels.push(k.rect = pick.rect);
+    k.parent = node; k.t = p.t + .02;
+    k.x = pick.x; k.y = pick.y;
+    const fa = side < 0 ? -1 : depth === 0 ? .9 : -.5;
+    if (k.children) {
+      k.start = { x: k.x + Q, y: k.y + 3 * Q, a: fa, depth: depth + 1, path: path + '/' + k.name,
+                  len: Math.max(400, 780 - depth * 60, 80 * k.children.length + 250) };
+    } else {
+      const tip = pick.path.at(-1), bloom = rng(path + '/' + k.name + '#flowers');
+      for (let j = 0, count = 2 + (bloom() < .25); j < count; j++) {
+        const spread = (j - (count - 1) / 2) * 14;
+        const blossom = { i: idx, x: tip.x + Math.cos(p.a) * spread - nx * (12 + (j % 2) * 3),
+          y: tip.y + Math.sin(p.a) * spread - ny * (12 + (j % 2) * 3),
+          delay: k.stem.delay + k.stem.len / TWIG_SPEED + .15 + j * .18,
+          petal: PETALS[(bloom() * PETALS.length) | 0], core: CORES[1], angle: bloom() * Math.PI * 2,
+          size: 2.15 + bloom() * .35 };
+        blossoms.push(blossom); occupied.add({ ...blossom, r: 18 });
+      }
+    }
+    pick.path.forEach(occupied.add);
+    label(k);
+  });
+  node.branch = { owner: node, pts, twigs, moss, blossoms, dur, cap: dur + Math.max(3, ...twigs.filter(tw => tw.stalk).map(tw => tw.len / TWIG_SPEED + 1.5)), age: 0 };
+  branches.push(node.branch);
+}
+
+function discard(node) {
+  if (!node.branch) return;
+  for (const kid of node.children) {
+    if (kid.children) discard(kid);
+    kid.el.remove(); kid.back?.remove();
+    labels = labels.filter(el => el !== kid.el && el !== kid.back);
+    placedLabels = placedLabels.filter(b => b !== kid.rect);
+    kid.vis = false;
+  }
+  branches = branches.filter(b => b !== node.branch);
+  delete node.branch;
+}
+
+let labels = [], placedLabels = [], branches = []; // Layout checks share placed label boxes across branches.
+function bounce(k) {
+  if (reduceMotion.matches) return;
+  for (const el of [k.el, k.back].filter(Boolean)) {
+    for (const animation of el.getAnimations()) if (animation.id === 'bounce') animation.cancel();
+    el.animate([{ translate: '0 0' }, { translate: '0 -4px', offset: .35 },
+      { translate: '0 1px', offset: .7 }, { translate: '0 0' }],
+      { id: 'bounce', duration: 280, easing: 'ease-out' });
+  }
+}
+
+function filePath(node) {
+  const parts = [];
+  for (; node?.parent; node = node.parent) parts.unshift(node.name);
+  return parts.join('/');
+}
+
+function openLocalFile(file) {
+  const url = URL.createObjectURL(file), link = document.createElement('a');
+  link.href = url; link.target = '_blank'; link.rel = 'noopener'; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+function label(k) {
+  const el = document.createElement('button');
+  el.className = 'item' + (k.children ? ' dir' : ' file');
+  k.vis = false;
+  el.innerHTML = k.children ? FOLDER : fileIcon(k.name);
+  el.append(Object.assign(document.createElement('span'), { textContent: k.name + (k.children ? '/' : '') }));
+  el.tabIndex = -1;
+  if (k.children) {
+    el.setAttribute('aria-expanded', 'false'); el.setAttribute('aria-haspopup', 'menu'); el.setAttribute('aria-keyshortcuts', 'Shift+F10 ContextMenu');
+    k.flap = 0; k.flapFrame = 0; k.hovered = false;
+    el.onpointerenter = () => { k.hovered = true; wake(); };
+    el.onpointerleave = () => { k.hovered = false; wake(); };
+  }
+  el.addEventListener('contextmenu', event => {
+    if (!k.children) return;
+    event.preventDefault(); showFolderMenu(k, el, event);
+  });
+  el.onclick = () => {
+    if (dragged) return;
+    if (k.children) toggle(k);
+    else {
+      bounce(k);
+      const file = localFiles?.get(filePath(k));
+      if (file) openLocalFile(file);
+    }
+  };
+  k.place = k.children ? 'translate(-9px,-50%)' : 'translate(-6.5px,-50%)';
+  if (k.children) {
+    k.back = document.createElement('div');
+    k.back.className = 'folder-back'; k.back.innerHTML = FOLDER_BACK; k.back.hidden = true;
+    k.back.setAttribute('aria-hidden', 'true');
+    document.body.append(k.back); labels.push(k.back);
+  }
+  document.body.append(el); labels.push(el); k.el = el;
+}
+
+const cv = document.getElementById('c'), ctx = cv.getContext('2d'), countEl = document.getElementById('count');
+let root, focus, open, cam, manual = false, userZoom = 1, zoomTarget = null, W, H, running = false, last = 0, timer = null;
+const autoZoomControl = document.getElementById('auto-zoom');
+const folderMenu = document.getElementById('folder-menu'), folderMenuToggle = document.getElementById('folder-menu-toggle');
+let contextFolder = null;
+const closeFolderMenu = restoreFocus => {
+  const node = contextFolder;
+  folderMenu.hidden = true; contextFolder = null;
+  if (restoreFocus) node?.el?.focus({ preventScroll: true });
+};
+function showFolderMenu(node, button, event) {
+  contextFolder = node;
+  folderMenuToggle.textContent = open.has(node) ? 'Collapse folder' : 'Expand folder';
+  folderMenu.hidden = false; folderMenu.style.left = '0px'; folderMenu.style.top = '0px';
+  const anchor = button.getBoundingClientRect(), menu = folderMenu.getBoundingClientRect();
+  const x = event.clientX || anchor.left, y = event.clientY || anchor.bottom;
+  folderMenu.style.left = clamp(x, 8, innerWidth - menu.width - 8) + 'px';
+  folderMenu.style.top = clamp(y, 8, innerHeight - menu.height - 8) + 'px';
+  folderMenu.querySelector('[role="menuitem"]').focus({ preventScroll: true });
+}
+folderMenuToggle.addEventListener('click', () => {
+  if (!contextFolder) return;
+  const node = contextFolder; closeFolderMenu(false); toggle(node); node.el?.focus({ preventScroll: true });
+});
+document.getElementById('folder-menu-copy').addEventListener('click', async () => {
+  if (!contextFolder) return;
+  try { await navigator.clipboard.writeText(filePath(contextFolder)); } catch { /* Clipboard access may be unavailable. */ }
+  closeFolderMenu(true);
+});
+addEventListener('pointerdown', event => {
+  if (!folderMenu.hidden && !folderMenu.contains(event.target)) closeFolderMenu(false);
+});
+addEventListener('resize', () => { if (!folderMenu.hidden) closeFolderMenu(false); });
+let currentTreeText, localFiles = null;
+const baseZoom = () => clamp(W / 1150, .5, 1.6);
+const minUserZoom = () => 18 / (13 * Q * baseZoom()); // Keep labels readable when zooming out.
+const zoom = () => baseZoom() * userZoom;
+
+function load(text, files = null) {
+  currentTreeText = text;
+  localFiles = files;
+  zoomTarget = null;
+  for (const el of labels) el.remove();
+  labels = []; placedLabels = []; branches = [];
+  root = parse(text);
+  root.start = { x: 0, y: 0, a: -.08, depth: 0, path: '', len: Math.max(950, 70 * root.children.length + 300) };
+  grow(root);
+  focus = root; open = new Set([root]); cam = null; manual = false;
+  wake();
+}
+
+function toggle(f) {
+  bounce(f);
+  zoomTarget = null;
+  focus = open.has(f) ? f.parent : f;
+  open = new Set();
+  // Include all ancestors before laying out a newly opened branch.
+  for (let p = focus; p; p = p.parent) open.add(p);
+  for (let p = focus; p; p = p.parent) if (!p.branch) grow(p);
+  framed.node = null;
+  manual = false;
+  wake();
+}
+
+let framed = { node: null };
+function target() {
+  if (framed.node === focus) return framed;
+  const ps = focus.branch.pts.filter(p => p.t >= (focus.parent ? 0 : .15)).concat(focus.children);
+  const xs = ps.map(p => p.x), ys = ps.map(p => p.y);
+  return framed = { node: focus, x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
+}
+
+function autoTarget(zoomLimit = userZoom) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  const add = (x, y) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); };
+  (function visit(node) {
+    const b = node.branch, expanded = open.has(node);
+    if (b && (expanded || b.age > 0)) for (const p of b.pts)
+      if (expanded || p.tr * b.dur < b.age) add(p.x, p.y);
+    for (const kid of node.children) {
+      if (kid.vis || expanded) { add(kid.rect.x0, kid.rect.y0); add(kid.rect.x1, kid.rect.y1); }
+      if (kid.branch) visit(kid);
+    }
+  })(root);
+  if (!Number.isFinite(x0)) return target();
+  const pad = 40, width = Math.max(1, x1 - x0 + pad * 2), height = Math.max(1, y1 - y0 + pad * 2);
+  const fitZoom = Math.max(.05, Math.min(Math.max(1, W - 80) / width, Math.max(1, H - 80) / height) / baseZoom());
+  return { x: (x0 + x1) / 2, y: (y0 + y1) / 2, zoom: Math.min(zoomLimit, fitZoom) };
+}
+
+function panBy(dx, dy) {
+  if (!cam) return;
+  const z = zoom();
+  cam = { x: cam.x - dx / z, y: cam.y - dy / z };
+  manual = true; wake();
+}
+function zoomAt(f, sx, sy) {
+  if (!cam) return;
+  zoomTarget = null;
+  const z0 = zoom();
+  userZoom = clamp(userZoom * f, minUserZoom(), 6);
+  const z1 = zoom();
+  cam = { x: cam.x + (sx - W / 2) * (1 / z0 - 1 / z1), y: cam.y + (sy - H / 2) * (1 / z0 - 1 / z1) };
+  manual = true; wake();
+}
+
+function resize() {
+  W = innerWidth; H = innerHeight;
+  userZoom = Math.max(userZoom, minUserZoom());
+  if (zoomTarget !== null) zoomTarget = Math.max(zoomTarget, minUserZoom());
+  cv.width = Math.ceil(W / PX); cv.height = Math.ceil(H / PX);
+  cv.style.width = cv.width * PX + 'px'; cv.style.height = cv.height * PX + 'px';
+  wake();
+}
+const pixelControl = document.getElementById('pixel-control'), growthControl = document.getElementById('growth-control'), blossomControl = document.getElementById('blossom-control'),
+  branchControl = document.getElementById('branch-control'), mossControl = document.getElementById('moss-control');
+document.getElementById('choose-folder').addEventListener('click', () => document.getElementById('pick').click());
+autoZoomControl.addEventListener('change', () => { zoomTarget = null; manual = !autoZoomControl.checked; wake(); });
+const toggleUiButton = document.getElementById('toggle-ui');
+const toggleUiIcon = document.getElementById('toggle-icon');
+const setControlsHidden = hidden => {
+  document.body.classList.toggle('ui-hidden', hidden);
+  toggleUiIcon.innerHTML = `<i class="ui-icon" data-lucide="${hidden ? 'eye' : 'eye-off'}" aria-hidden="true"></i>`;
+  createIcons({ icons: lucideIcons });
+  toggleUiButton.setAttribute('aria-label', hidden ? 'Show controls' : 'Hide controls');
+  toggleUiButton.title = hidden ? 'Show controls' : 'Hide controls';
+  toggleUiButton.setAttribute('aria-expanded', String(!hidden));
+};
+toggleUiButton.addEventListener('click', () => setControlsHidden(!document.body.classList.contains('ui-hidden')));
+setControlsHidden(false);
+const updateControls = () => {
+  PX = Number(pixelControl.value); growthPace = Number(growthControl.value); blossomScale = Number(blossomControl.value);
+  branchScale = Number(branchControl.value); mossCoverage = Number(mossControl.value);
+  const setValue = (id, value) => {
+    const output = document.getElementById(id);
+    const previous = output.dataset.value ?? output.textContent, nextValue = String(value);
+    output.querySelectorAll('*').forEach(element => element.getAnimations().forEach(animation => animation.cancel()));
+    output.dataset.value = nextValue; output.setAttribute('aria-label', nextValue);
+    const line = document.createElement('span'); line.className = 'value-line'; line.setAttribute('aria-hidden', 'true');
+    const direction = Number.parseFloat(nextValue) > Number.parseFloat(previous) ? -1 : 1;
+    [...nextValue].forEach((char, index) => {
+      const cell = document.createElement('span'); cell.className = 'value-char';
+      const oldChar = [...previous][index], changed = oldChar !== char;
+      if (!changed || reduceMotion.matches || !output.animate) { cell.textContent = char; }
+      else {
+        const oldGlyph = document.createElement('span'), newGlyph = document.createElement('span');
+        oldGlyph.textContent = oldChar || ''; newGlyph.textContent = char; cell.append(oldGlyph, newGlyph);
+        oldGlyph.animate([{ transform: 'translateY(0)' }, { transform: `translateY(${direction * 100}%)` }], { duration: 150, easing: 'ease-in', fill: 'forwards' });
+        newGlyph.animate([{ transform: `translateY(${-direction * 100}%)` }, { transform: 'translateY(0)' }], { duration: 150, easing: 'ease-out' })
+          .onfinish = () => cell.replaceChildren(newGlyph);
+      }
+      line.append(cell);
+    });
+    output.replaceChildren(line);
+  };
+  setValue('pixel-value', Math.round(PX));
+  setValue('growth-value', growthPace.toFixed(1) + '×');
+  setValue('blossom-value', blossomScale.toFixed(1) + '×');
+  setValue('branch-value', branchScale.toFixed(1) + '×');
+  setValue('moss-value', mossCoverage.toFixed(1) + '×');
+  let hasChanges = false;
+  document.querySelectorAll('[data-reset]').forEach(button => {
+    const input = document.getElementById(button.dataset.reset);
+    button.disabled = input.value === input.defaultValue;
+    hasChanges ||= !button.disabled;
+  });
+  document.getElementById('reset-controls').disabled = !hasChanges;
+  resize();
+};
+const replayTree = () => { if (currentTreeText !== undefined) load(currentTreeText, localFiles); };
+const resetAnimations = new WeakMap();
+const cancelResetAnimation = input => {
+  const animation = resetAnimations.get(input);
+  if (!animation) return;
+  cancelAnimationFrame(animation.frame);
+  input.step = animation.step;
+  resetAnimations.delete(input);
+};
+const resetSlider = (input, replayOnFinish = true) => {
+  cancelResetAnimation(input);
+  const from = Number(input.value), to = Number(input.defaultValue), step = input.step;
+  if (from === to) return;
+  const started = performance.now(), duration = 240;
+  const finish = () => {
+    input.step = step; input.value = input.defaultValue; resetAnimations.delete(input);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    if (replayOnFinish) input.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  if (reduceMotion.matches) { finish(); return; }
+  input.step = 'any';
+  const animate = now => {
+    const t = Math.min(1, (now - started) / duration), eased = 1 - (1 - t) ** 3;
+    input.value = String(from + (to - from) * eased);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    if (t < 1) resetAnimations.set(input, { frame: requestAnimationFrame(animate), step });
+    else finish();
+  };
+  resetAnimations.set(input, { frame: requestAnimationFrame(animate), step });
+};
+for (const input of [pixelControl, growthControl, blossomControl, branchControl, mossControl]) input.addEventListener('input', event => {
+  if (event.isTrusted) cancelResetAnimation(input);
+  updateControls();
+});
+growthControl.addEventListener('change', replayTree);
+mossControl.addEventListener('change', replayTree);
+document.querySelectorAll('[data-reset]').forEach(button => button.addEventListener('click', () => {
+  resetSlider(document.getElementById(button.dataset.reset));
+}));
+document.getElementById('reset-controls').addEventListener('click', () => {
+  const inputs = [pixelControl, growthControl, blossomControl, branchControl, mossControl];
+  const replayInput = inputs.find(input => [growthControl, mossControl].includes(input) && input.value !== input.defaultValue);
+  for (const input of inputs) resetSlider(input, input === replayInput);
+});
+function wake() {
+  if (!root) return;
+  if (timer) { clearTimeout(timer); timer = null; requestAnimationFrame(frame); }
+  else if (!running) { running = true; last = performance.now(); requestAnimationFrame(frame); }
+}
+
+function render(b, clock, alpha, time, z, ox, oy, s) {
+  if (clock <= 0) return;
+  ctx.globalAlpha = alpha;
+  const tick = Math.floor(time * 8), { pts, dur } = b;
+  const snap = v => Math.floor(v / s) * s, X = x => (x * z + ox) / PX, Y = y => (y * z + oy) / PX;
+  let cur;
+  const dot = (x, y, c) => { if (c !== cur) ctx.fillStyle = cur = c; ctx.fillRect(snap(x), snap(y), s, s); };
+  const ageAt = i => clock - pts[i].tr * dur;
+  const widthAt = i => clamp(Math.round((1 + Math.floor((ageAt(i) - SKETCH) / THICKEN * pts[i].w)) * branchScale), 1, Math.ceil(pts[i].w * branchScale));
+  const line = (x, y, a, L, seed, solid) => {
+    for (let d = 0; d < L; d += s) {
+      if (!solid && hash(seed + d, 0) < .4) continue;
+      dot(snap(x + Math.cos(a) * d), snap(y + Math.sin(a) * d),
+          hash(seed + d, 1) < .55 ? C.tip : hash(seed + d, 2) < .7 ? C.core : C.edge2);
+    }
+  };
+
+  let x0 = X(pts[0].x), y0 = Y(pts[0].y), q = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i], age = ageAt(i);
+    if (age < 0) break;
+    const x1 = X(p.x), y1 = Y(p.y), n = i ? Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / s)) : 1;
+    const w = widthAt(i);
+    const vert = Math.abs(Math.cos(p.a)) >= Math.abs(Math.sin(p.a));
+    for (let j = 1; j <= n; j++, q++) {
+      const x = snap(x0 + (x1 - x0) * j / n), y = snap(y0 + (y1 - y0) * j / n);
+      if (age < SKETCH) { if (q % 3 === 0) dot(x, y, C.tip); continue; }
+      for (let k = 0; k < w; k++) {
+        const flick = hash(q * 7 + k, tick) < .05;
+        const dither = ((q + k) & 1) ^ flick;
+        const offset = (k - Math.floor(w / 2)) * s;
+        dot(vert ? x : x + offset, vert ? y + offset : y,
+            k === w - 1 && w > 1 ? (dither ? C.edge : C.edge2) : k === 0 && w > 2 ? (dither ? C.edge2 : C.edge)
+            : dither ? C.core : flick ? C.core2 : C.edge2);
+      }
+    }
+    if (p.bud && age > .6) dot(snap(vert ? x1 : x1 - s), snap(vert ? y1 - s : y1), C.bud);
+    if (p.knot && age > .8) {
+      const kx = snap(x1), ky = snap(y1) + (vert ? s : 0);
+      dot(kx, ky, C.edge); dot(kx + s, ky, C.edge); dot(kx - s, ky, C.edge2); dot(kx + 2 * s, ky, C.core2);
+    }
+    x0 = x1; y0 = y1;
+  }
+
+  for (const tw of b.twigs) {
+    const age = ageAt(tw.i) - tw.delay;
+    if (age <= 0) continue;
+    const grown = Math.min(tw.len, age * TWIG_SPEED);
+    if (tw.path) {
+      const sourceWidth = widthAt(tw.i);
+      for (let j = 1; j < tw.path.length; j++) {
+        const a = tw.path[j - 1], b = tw.path[j];
+        if (a.d >= grown) break;
+        const g = Math.min(1, (grown - a.d) / (b.d - a.d)), x = X(a.x), y = Y(a.y);
+        const dx = (X(b.x) - x) * g, dy = (Y(b.y) - y) * g;
+        const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / s));
+        const vertical = Math.abs(dx) >= Math.abs(dy);
+        for (let n = 0; n <= steps; n++) {
+          const progress = (a.d + (b.d - a.d) * g * n / steps) / tw.len;
+          const width = Math.max(1, Math.round(sourceWidth * Math.max(0, 1 - progress) ** .7));
+          for (let cell = 0; cell < width; cell++) {
+            const offset = (cell - Math.floor(width / 2)) * s;
+            dot(x + dx * n / steps + (vertical ? 0 : offset), y + dy * n / steps + (vertical ? offset : 0),
+              width > 1 && cell === width - 1 ? C.edge : ((j + cell) & 1) ? C.edge2 : C.core);
+          }
+        }
+      }
+      continue;
+    }
+    const p = pts[tw.i], x = X(p.x), y = Y(p.y), k = z / PX;
+    line(x, y, tw.a, grown * k, tw.seed, tw.stalk);
+    if (tw.fork && grown > tw.fork.at * tw.len) {
+      const fx = x + Math.cos(tw.a) * tw.fork.at * tw.len * k, fy = y + Math.sin(tw.a) * tw.fork.at * tw.len * k;
+      line(fx, fy, tw.a + tw.fork.da, Math.min(tw.fork.len * tw.len, grown - tw.fork.at * tw.len) * k, tw.seed + 99);
+    }
+  }
+
+  for (const m of b.moss) {
+    const age = ageAt(m.i) - m.delay;
+    if (age <= 0) continue;
+    const g = Math.min(1, age / m.dur), r = m.r * 3.2 * z / PX * (1 - (1 - g) ** 3) * (1 + .08 * Math.sin(time * 1.7 + m.seed) * g);
+    if (r < .5) continue;
+    const p = pts[m.i], cx = snap(X(p.x - Math.sin(p.a) * m.side * m.off)), cy = snap(Y(p.y + Math.cos(p.a) * m.side * m.off));
+    const world = { x: p.x - Math.sin(p.a) * m.side * m.off, y: p.y + Math.cos(p.a) * m.side * m.off };
+    if (placedLabels.some(b => inside(world, { ...b, x0: b.textX0 }, m.r * 3.5 * Math.max(m.ax, 1) + 10))) continue;
+    const rx = r * m.ax / s, ry = r / s, Rx = Math.ceil(rx), Ry = Math.ceil(ry);
+    for (let iy = -Ry; iy <= Ry; iy++) for (let ix = -Rx; ix <= Rx; ix++) {
+      const d = (ix / rx) ** 2 + (iy / ry) ** 2;
+      if (d > 1 - .6 * hash(ix + m.seed, iy)) continue;
+      const x = cx + ix * s, y = cy + iy * s, n = hash(ix * 3 + m.seed, iy * 5);
+      const checker = ((x + y) / s & 1) ^ (hash(ix + iy * 31 + m.seed, tick) < .04);
+      if (d > .5 && checker) continue;
+      dot(x, y, n < .02 ? C.edge : n < .14 ? C.mossDark : n > .95 ? C.mossLight : C.moss[checker]);
+    }
+  }
+
+  for (const f of b.blossoms) {
+    const age = ageAt(f.i) - f.delay;
+    if (age <= 0 || placedLabels.some(b => inside(f, { ...b, x0: b.textX0 }, 18))) continue;
+    const t = clamp(age / .65, 0, 1), g = t * t * (3 - 2 * t);
+    const x = snap(X(f.x)), y = snap(Y(f.y)), radius = f.size * blossomScale * g, unit = STEP * z / PX;
+    const petalCell = (dx, dy, color) => {
+      const left = snap(x + dx * unit), top = snap(y + dy * unit);
+      const right = Math.max(left + s, snap(x + (dx + 1) * unit)), bottom = Math.max(top + s, snap(y + (dy + 1) * unit));
+      for (let py = top; py < bottom; py += s) for (let px = left; px < right; px += s) dot(px, py, color);
+    };
+    ctx.globalAlpha = alpha * (.4 + .6 * g);
+    for (let j = 0; j < 5; j++) {
+      const a = f.angle + j * Math.PI * 2 / 5;
+      const px = Math.round(Math.cos(a) * radius), py = Math.round(Math.sin(a) * radius);
+      petalCell(px, py, f.petal);
+      if (g > .4) { petalCell(px - 1, py, f.petal); petalCell(px, py - 1, f.petal); petalCell(px - 1, py - 1, f.petal); }
+      const inner = Math.max(0, radius - .8);
+      petalCell(Math.round(Math.cos(a) * inner), Math.round(Math.sin(a) * inner), f.petal);
+    }
+    petalCell(0, 0, t < .2 ? CORES[0] : f.core);
+  }
+  ctx.globalAlpha = alpha;
+}
+
+function frame(now) {
+  const dt = Math.min(.1, (now - last) / 1000), instant = reduceMotion.matches, time = now / 1000;
+  last = now;
+  let busy = false, shown = 0;
+  let tg;
+  if (!manual) {
+    tg = autoZoomControl.checked ? autoTarget(6) : target();
+    const k = instant || !cam ? 1 : Math.min(1, dt * 3);
+    cam = cam || tg;
+    cam = { x: cam.x + (tg.x - cam.x) * k, y: cam.y + (tg.y - cam.y) * k };
+    if (tg.zoom !== undefined) userZoom += (tg.zoom - userZoom) * k;
+    busy = Math.abs(tg.x - cam.x) + Math.abs(tg.y - cam.y) > .3 || (tg.zoom !== undefined && Math.abs(tg.zoom - userZoom) > .001);
+  }
+  if (zoomTarget !== null && (manual || tg?.zoom === undefined)) {
+    userZoom += (zoomTarget - userZoom) * (instant ? 1 : Math.min(1, dt * 6));
+    if (Math.abs(zoomTarget - userZoom) < .001) { userZoom = zoomTarget; zoomTarget = null; }
+    else busy = true;
+  } else if (zoomTarget !== null && Math.abs(tg.zoom - userZoom) < .001) {
+    userZoom = tg.zoom; zoomTarget = null;
+  }
+  const z = zoom();
+  const ox = W / 2 - cam.x * z, oy = H / 2 - cam.y * z, s = Math.max(1, Math.floor(z * STEP / PX));
+  // Closing branches decay faster than they grew.
+  const advance = (v, on, cap) => {
+    const nv = instant ? (on ? cap : 0) : on ? Math.min(cap, v + dt * growthPace) : Math.max(0, v - dt * growthPace * (v + 1) * 2);
+    if (nv !== v) busy = true;
+    return nv;
+  };
+
+  const drawn = [];
+  (function walk(node) {
+    const b = node.branch;
+    b.age = advance(b.age, open.has(node), b.cap);
+    drawn.push(node);
+    for (const kid of node.children) {
+      const vis = b.age > b.dur * kid.tr;
+      if (vis !== kid.vis) {
+        kid.vis = vis;
+        kid.el.classList.toggle('on', vis);
+        kid.el.setAttribute('aria-hidden', !vis);
+        kid.el.tabIndex = vis ? 0 : -1;
+      }
+      kid.el.style.transform = `translate(${kid.x * z + ox}px,${kid.y * z + oy}px) scale(${z * Q}) ${kid.place}`;
+      if (vis) shown++;
+      if (kid.children) {
+        kid.back.style.transform = kid.el.style.transform;
+        kid.back.hidden = !vis;
+        const o = open.has(kid), flapTarget = o ? 4 : kid.hovered ? 1 : 0;
+        kid.flap = instant ? flapTarget : kid.flap + (flapTarget - kid.flap) * Math.min(1, dt * 16);
+        if (Math.abs(kid.flap - flapTarget) > .02) busy = true;
+        else kid.flap = flapTarget;
+        const flapFrame = Math.round(kid.flap);
+        if (kid.flapFrame !== flapFrame) {
+          kid.el.firstElementChild.innerHTML = FOLDER_FRAMES[flapFrame]; kid.flapFrame = flapFrame;
+        }
+        kid.back.classList.toggle('open', o);
+        if (kid.isOpen !== o) { kid.isOpen = o; kid.el.classList.toggle('open', o); kid.el.setAttribute('aria-expanded', o); }
+        if (kid.branch) walk(kid);
+      }
+    }
+  })(root);
+
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  for (const n of drawn) render(n.branch, n.branch.age, 1, time, z, ox, oy, s);
+  ctx.globalAlpha = 1;
+  for (const n of drawn) if (n !== root && n.branch?.age === 0 && !open.has(n)) discard(n);
+
+  countEl.textContent = root.children.length ? shown + (shown === 1 ? ' item' : ' items') : 'No paths found';
+  if (busy) requestAnimationFrame(frame);
+  else if (instant) running = false;
+  else timer = setTimeout(() => { timer = null; requestAnimationFrame(frame); }, 1000 / 12);
+}
+
+const pointers = new Map();
+let dragged = false;
+const gesture = () => {
+  const ps = [...pointers.values()].slice(0, 2);
+  return { x: ps.reduce((a, p) => a + p.x, 0) / ps.length, y: ps.reduce((a, p) => a + p.y, 0) / ps.length,
+           d: ps.length > 1 ? Math.hypot(ps[0].x - ps[1].x, ps[0].y - ps[1].y) : 0 };
+};
+addEventListener('pointerdown', e => {
+  if (e.target.closest('#playground, #folder-menu')) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY });
+  dragged = false;
+});
+addEventListener('pointermove', e => {
+  const p = pointers.get(e.pointerId);
+  if (!p) return;
+  const g0 = gesture();
+  p.x = e.clientX; p.y = e.clientY;
+  const g1 = gesture();
+  if (!dragged && Math.hypot(p.x - p.sx, p.y - p.sy) < 4) return;
+  dragged = true; document.body.classList.add('dragging');
+  // cmd+drag: up zooms in, down zooms out, anchored where the drag started
+  if (e.metaKey && pointers.size === 1) return zoomAt(Math.exp((g0.y - g1.y) * .01), p.sx, p.sy);
+  panBy(g1.x - g0.x, g1.y - g0.y);
+  if (g0.d && g1.d) zoomAt(g1.d / g0.d, g1.x, g1.y);
+});
+const release = e => {
+  pointers.delete(e.pointerId);
+  if (!pointers.size) document.body.classList.remove('dragging');
+  setTimeout(() => dragged = false); // Wait for the click event that follows pointerup.
+};
+addEventListener('pointerup', release);
+addEventListener('pointercancel', release);
+
+addEventListener('wheel', e => {
+  if (e.target.closest('#playground, #folder-menu')) return;
+  e.preventDefault();
+  const k = e.deltaMode === 1 ? 16 : 1; // Convert line-based wheel deltas to pixels.
+  if (e.ctrlKey) zoomAt(Math.exp(-e.deltaY * k * .01), e.clientX, e.clientY);
+  else panBy(-e.deltaX * k, -e.deltaY * k);
+}, { passive: false });
+let gs = 1; // Safari reports trackpad pinch through gesture events.
+addEventListener('gesturestart', e => { e.preventDefault(); gs = 1; });
+addEventListener('gesturechange', e => { e.preventDefault(); zoomAt(e.scale / gs, e.clientX, e.clientY); gs = e.scale; });
+
+addEventListener('keydown', e => {
+  if (!folderMenu.hidden) {
+    const items = [...folderMenu.querySelectorAll('[role="menuitem"]')], index = items.indexOf(document.activeElement);
+    if (e.key === 'Escape') { e.preventDefault(); closeFolderMenu(true); return; }
+    if (e.key === 'Tab') { closeFolderMenu(false); return; }
+    if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
+      e.preventDefault();
+      const next = e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : (index + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+      items[next].focus(); return;
+    }
+  }
+  if (e.key === 'Escape' && focus?.parent) return toggle(focus);
+  if (!e.repeat && e.key.toLowerCase() === 'a' && !e.ctrlKey && !e.metaKey && !e.altKey &&
+      !e.target.closest('input, textarea, select, [contenteditable="true"]')) {
+    autoZoomControl.checked = !autoZoomControl.checked;
+    autoZoomControl.dispatchEvent(new Event('change'));
+    return;
+  }
+  if (!(e.ctrlKey || e.metaKey)) return;
+  const f = { '+': 1.25, '=': 1.25, '-': .8, '_': .8, '0': 0 }[e.key];
+  if (f === undefined) return;
+  e.preventDefault();
+  if (f) {
+    zoomTarget = clamp((zoomTarget ?? userZoom) * f, minUserZoom(), 6);
+    manual = true; wake();
+  } else { zoomTarget = 1; manual = false; wake(); }
+});
+
+// Data: ?tree=<url> or tree.txt; also a picked folder or a dropped text file of paths.
+const src = new URLSearchParams(location.search).get('tree') || 'tree.txt';
+const fail = () => { countEl.textContent = `Couldn't read ${src}. Open a folder or drop a list of paths.`; };
+document.getElementById('pick').onchange = e => {
+  const files = [...e.target.files];
+  const localFiles = new Map(files.map(file => [file.webkitRelativePath.split('/').slice(1).join('/').replaceAll('\\', '/'), file]));
+  const paths = files.map(file => file.webkitRelativePath.slice(file.webkitRelativePath.indexOf('/') + 1));
+  if (paths.length) load(paths.join('\n'), localFiles);
+};
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', e => { e.preventDefault(); e.dataTransfer.files[0]?.text().then(load, fail); });
+addEventListener('resize', resize);
+resize();
+fetch(src).then(r => r.ok ? r.text() : Promise.reject()).then(load, fail);
+</script>
+</body>
+</html>

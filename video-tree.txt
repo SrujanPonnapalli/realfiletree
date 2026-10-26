@@ -1,0 +1,11 @@
+# The exact tree from the original video, for side-by-side comparison: index.html?tree=video-tree.txt
+woodland/old-oak/acorns.md
+woodland/old-oak/lichen/bark.jpg
+woodland/old-oak/lichen/moss.png
+woodland/old-oak/lichen/spores/cap.png
+woodland/old-oak/lichen/spores/gills.txt
+woodland/old-oak/fern-sketch.fig
+woodland/field-guide.pdf
+meadow/wildflowers.jpg
+meadow/pond/frogspawn.raw
+seeds.txt

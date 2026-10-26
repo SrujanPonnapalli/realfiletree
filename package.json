@@ -1,0 +1,16 @@
+{
+  "name": "literal-file-tree",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host localhost --port 3000",
+    "build": "vite build && node copy-demo-data.mjs",
+    "preview": "vite preview --host localhost"
+  },
+  "devDependencies": {
+    "vite": "^8.3.5"
+  },
+  "dependencies": {
+    "lucide": "^1.61.0"
+  }
+}
